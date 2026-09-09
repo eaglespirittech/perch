@@ -35,7 +35,6 @@ AppUpdatesURL={#RepoUrl}/releases
 VersionInfoVersion={#AppVersion}
 
 DefaultDirName={autopf}\{#AppName}
-DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 PrivilegesRequired=lowest
@@ -65,7 +64,8 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "Perch.exe"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#AppName}"; Filename: "{app}\Perch.exe"
+; Straight into the app list rather than a one-item folder.
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\Perch.exe"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\Perch.exe"; Tasks: desktopicon
 
 [Registry]
