@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>DeskProbe</AssemblyName>
-    <RootNamespace>IdasenDeskControl.Tools</RootNamespace>
+    <RootNamespace>Perch.Tools</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

@@ -37,7 +37,7 @@ jobs:
       - name: Publish
         shell: pwsh
         run: |
-          dotnet publish IdasenDeskControl.csproj `
+          dotnet publish Perch.csproj `
             -c Release `
             -r win-x64 `
             --self-contained true `
@@ -46,8 +46,8 @@ jobs:
             -p:EnableCompressionInSingleFile=true `
             -p:Version=${{ steps.version.outputs.version }} `
             -o dist
-          $name = "IdasenDeskControl-${{ steps.version.outputs.version }}-win-x64.exe"
-          Move-Item dist/IdasenDeskControl.exe "dist/$name"
+          $name = "Perch-${{ steps.version.outputs.version }}-win-x64.exe"
+          Move-Item dist/Perch.exe "dist/$name"
           (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLower() + "  $name" |
             Out-File -FilePath "dist/$name.sha256" -Encoding ascii
 

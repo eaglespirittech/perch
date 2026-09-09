@@ -10,7 +10,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ScheduleTests</AssemblyName>
-    <RootNamespace>IdasenDeskControl.Tests</RootNamespace>
+    <RootNamespace>Perch.Tests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

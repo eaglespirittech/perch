@@ -5,7 +5,7 @@ using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Devices.Enumeration;
 using Windows.Storage.Streams;
 
-namespace IdasenDeskControl;
+namespace Perch;
 
 /// <summary>
 /// Talks to an IKEA Idasen (Linak DPG1C) desk over Bluetooth LE.
@@ -92,20 +92,30 @@ public sealed class DeskController : IDisposable
 
     async Task<GattCharacteristic> GetCharacteristicAsync(Guid service, Guid characteristic)
     {
-        var services = await _device!.GetGattServicesForUuidAsync(service, BluetoothCacheMode.Uncached);
-        if (services.Status != GattCommunicationStatus.Success || services.Services.Count == 0)
-            throw new IOException(
-                $"Service {service} not found ({services.Status}). " +
-                "That device does not look like an Idasen desk, or it is currently held by something else.");
+        // Discovery is flaky while the desk is waking up, so give it a couple of tries
+        // before deciding something is really wrong.
+        for (var attempt = 1; ; attempt++)
+        {
+            var services = await _device!.GetGattServicesForUuidAsync(service, BluetoothCacheMode.Uncached);
+            if (services.Status == GattCommunicationStatus.Success && services.Services.Count > 0)
+            {
+                var svc = services.Services[0];
+                _services.Add(svc);
 
-        var svc = services.Services[0];
-        _services.Add(svc);
+                var chars = await svc.GetCharacteristicsForUuidAsync(characteristic, BluetoothCacheMode.Uncached);
+                if (chars.Status == GattCommunicationStatus.Success && chars.Characteristics.Count > 0)
+                    return chars.Characteristics[0];
+            }
 
-        var chars = await svc.GetCharacteristicsForUuidAsync(characteristic, BluetoothCacheMode.Uncached);
-        if (chars.Status != GattCommunicationStatus.Success || chars.Characteristics.Count == 0)
-            throw new IOException($"Characteristic {characteristic} not found ({chars.Status}).");
+            if (attempt == 3)
+                throw new IOException(
+                    "Could not reach the desk's controls. The usual cause is that something else " +
+                    "is already connected to it: close the IKEA Desk Control app on your phone, " +
+                    "or another copy of this app, and try again. " +
+                    $"(service {service}, status {services.Status})");
 
-        return chars.Characteristics[0];
+            await Task.Delay(400);
+        }
     }
 
     void OnConnectionStatusChanged(BluetoothLEDevice sender, object args)

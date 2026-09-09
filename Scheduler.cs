@@ -1,4 +1,4 @@
-namespace IdasenDeskControl;
+namespace Perch;
 
 /// <summary>
 /// Watches the clock and asks for a move only when the schedule crosses a boundary.

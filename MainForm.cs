@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace IdasenDeskControl;
+namespace Perch;
 
 public sealed class MainForm : Form
 {
@@ -39,7 +39,7 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "Idasen Desk Control";
+        Text = "Perch";
         ClientSize = new Size(420, 476);
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;

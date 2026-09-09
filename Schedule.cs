@@ -1,4 +1,4 @@
-namespace IdasenDeskControl;
+namespace Perch;
 
 public enum DeskState
 {

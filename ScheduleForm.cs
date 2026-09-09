@@ -1,4 +1,4 @@
-namespace IdasenDeskControl;
+namespace Perch;
 
 /// <summary>
 /// One row per weekday: switch it on, set the window it applies to, then the stand slot

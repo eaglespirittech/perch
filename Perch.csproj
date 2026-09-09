@@ -7,8 +7,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>IdasenDeskControl</AssemblyName>
-    <RootNamespace>IdasenDeskControl</RootNamespace>
+    <AssemblyName>Perch</AssemblyName>
+    <RootNamespace>Perch</RootNamespace>
     <ApplicationIcon />
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>

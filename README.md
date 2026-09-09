@@ -1,11 +1,15 @@
-# Idasen Desk Control
+# Perch
 
-A small Windows app for driving an IKEA IDÅSEN (Linak DPG1C) sit/stand desk to an exact
-height over Bluetooth LE. Type a height in cm, press Go.
+Sit/stand desk control for the IKEA IDÅSEN. A small Windows app that drives the desk to
+an exact height over Bluetooth LE, with presets and an hourly stand schedule. Type a
+height in cm, press Go.
 
-- `dist\IdasenDeskControl.exe` — self-contained single file, no .NET runtime needed.
-- Settings (chosen device, presets, schedule) live in
-  `%APPDATA%\IdasenDeskControl\settings.json`.
+Not affiliated with or endorsed by Inter IKEA Systems B.V. IDÅSEN is their trademark;
+it appears here only to say which desk this controls.
+
+- `dist\Perch.exe` — self-contained single file, no .NET runtime needed.
+- Settings (chosen device, presets, schedule) live in `%APPDATA%\Perch\settings.json`.
+  A settings file from the app's earlier name is picked up automatically on first run.
 
 ## Before first use
 
@@ -85,9 +89,9 @@ DeskProbe LIFT --watch     # keep printing height changes
 ## Build
 
 ```
-dotnet build IdasenDeskControl.csproj -c Release
+dotnet build Perch.csproj -c Release
 dotnet run --project tests/ScheduleTests/ScheduleTests.csproj -c Release
-dotnet publish IdasenDeskControl.csproj -c Release -r win-x64 --self-contained true ^
+dotnet publish Perch.csproj -c Release -r win-x64 --self-contained true ^
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist
 ```
 

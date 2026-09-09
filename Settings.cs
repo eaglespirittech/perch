@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text.Json;
 
-namespace IdasenDeskControl;
+namespace Perch;
 
 public sealed class Settings
 {
@@ -13,29 +13,36 @@ public sealed class Settings
     public bool ScheduleEnabled { get; set; }
     public WeekSchedule Schedule { get; set; } = new();
 
-    static readonly string Path = System.IO.Path.Combine(
+    static string PathIn(string folder) => System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "IdasenDeskControl",
+        folder,
         "settings.json");
+
+    static readonly string Path = PathIn("Perch");
+
+    /// <summary>Where settings lived before the app was called Perch. Read once, then left alone.</summary>
+    static readonly string LegacyPath = PathIn("IdasenDeskControl");
 
     public static Settings Load()
     {
-        try
+        foreach (var path in new[] { Path, LegacyPath })
         {
-            if (File.Exists(Path))
+            try
             {
-                var loaded = JsonSerializer.Deserialize<Settings>(File.ReadAllText(Path));
-                if (loaded is not null)
-                {
-                    loaded.Schedule = (loaded.Schedule ?? new WeekSchedule()).Normalized();
-                    return loaded;
-                }
+                if (!File.Exists(path)) continue;
+
+                var loaded = JsonSerializer.Deserialize<Settings>(File.ReadAllText(path));
+                if (loaded is null) continue;
+
+                loaded.Schedule = (loaded.Schedule ?? new WeekSchedule()).Normalized();
+                return loaded;
+            }
+            catch
+            {
+                // A corrupt settings file is not worth blocking startup over.
             }
         }
-        catch
-        {
-            // A corrupt settings file is not worth blocking startup over.
-        }
+
         return new Settings();
     }
 
