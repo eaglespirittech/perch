@@ -11,6 +11,9 @@ public static class AutoStart
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     const string ValueName = "Perch";
 
+    /// <summary>Sign-in should park it by the clock, not throw a window at you.</summary>
+    const string Arguments = " --minimized";
+
     /// <summary>The exe as Windows should launch it. Null when running from a host such as dotnet.exe.</summary>
     public static string? ExePath
     {
@@ -52,7 +55,7 @@ public static class AutoStart
             }
 
             if (ExePath is not { } exe) return "Could not work out which file to start.";
-            key.SetValue(ValueName, $"\"{exe}\"");
+            key.SetValue(ValueName, Command(exe));
             return null;
         }
         catch (Exception ex)
@@ -60,6 +63,8 @@ public static class AutoStart
             return ex.Message;
         }
     }
+
+    static string Command(string exe) => $"\"{exe}\"{Arguments}";
 
     /// <summary>
     /// Keeps the registered path pointing at wherever the exe lives now, so moving it
@@ -74,7 +79,7 @@ public static class AutoStart
             using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
             if (key?.GetValue(ValueName) is not string current) return;
 
-            var wanted = $"\"{exe}\"";
+            var wanted = Command(exe);
             if (!string.Equals(current, wanted, StringComparison.OrdinalIgnoreCase))
                 key.SetValue(ValueName, wanted);
         }

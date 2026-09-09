@@ -43,8 +43,16 @@ public sealed class MainForm : Form
     readonly Label _nextMove = new();
     readonly Label _status = new();
 
-    public MainForm()
+    readonly NotifyIcon _tray = new();
+    readonly System.Windows.Forms.Timer _startup = new();
+    Icon? _appIcon;
+    bool _startHidden;
+    bool _exiting;
+
+    public MainForm(bool startHidden = false)
     {
+        _startHidden = startHidden;
+
         Text = "Perch";
         AutoScaleMode = AutoScaleMode.Dpi;
         FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -55,10 +63,27 @@ public sealed class MainForm : Form
 
         BuildLayout();
         WireEvents();
+        BuildTrayIcon();
         RefreshPresetLabels();
         ShowTarget(_settings.LastTarget);
 
-        _desk.HeightChanged += cm => OnUi(() => _gauge.Value = cm);
+        // The window may never be shown, but BLE callbacks still need something to
+        // marshal onto, so make the handle exist up front.
+        _ = Handle;
+
+        _startup.Interval = 100;
+        _startup.Tick += async (_, _) =>
+        {
+            _startup.Stop();
+            await ScanAsync(autoConnect: true);
+        };
+        _startup.Start();
+
+        _desk.HeightChanged += cm => OnUi(() =>
+        {
+            _gauge.Value = cm;
+            _tray.Text = $"Perch - {Cm(cm)}";
+        });
         _desk.ConnectionChanged += connected => OnUi(() =>
         {
             if (!connected) SetDisconnectedUi("The desk dropped the Bluetooth connection.");
@@ -231,6 +256,13 @@ public sealed class MainForm : Form
         _fieldUnit.ForeColor = Theme.TextSecondary;
 
         ToolStripManager.Renderer = new FluentMenuRenderer();
+
+        var previous = _appIcon;
+        _appIcon = AppIcon.Create();
+        Icon = _appIcon;
+        _tray.Icon = _appIcon;
+        previous?.Dispose();
+
         Theme.ApplyWindowTrim(this);
         Invalidate(true);
     }
@@ -239,7 +271,6 @@ public sealed class MainForm : Form
 
     void WireEvents()
     {
-        Load += async (_, _) => await ScanAsync(autoConnect: true);
         _menu.Click += (_, _) => ShowMenu();
         _go.Click += async (_, _) => await MoveToAsync(ReadTarget());
         _stop.Click += async (_, _) => await StopAsync();
@@ -253,14 +284,96 @@ public sealed class MainForm : Form
         _editSchedule.Click += (_, _) => EditSchedule();
         _target.Leave += (_, _) => ShowTarget(ReadTarget());
 
-        FormClosing += (_, _) =>
+        FormClosing += (_, e) =>
         {
+            // Closing the window parks the app next to the clock; the schedule only works
+            // while it is running. Exit is on the tray menu and the overflow menu.
+            if (!_exiting && e.CloseReason == CloseReason.UserClosing)
+            {
+                e.Cancel = true;
+                HideToTray();
+                return;
+            }
+
             _move?.Cancel();
             _settings.LastTarget = ReadTarget();
             _settings.Save();
+            _startup.Dispose();
             _scheduler.Dispose();
             _desk.Dispose();
+            _tray.Visible = false;
+            _tray.Dispose();
+            _appIcon?.Dispose();
         };
+    }
+
+    // ---- notification area -------------------------------------------------
+
+    void BuildTrayIcon()
+    {
+        _appIcon = AppIcon.Create();
+        Icon = _appIcon;
+
+        var menu = new ContextMenuStrip
+        {
+            RenderMode = ToolStripRenderMode.ManagerRenderMode,
+            BackColor = Theme.Surface,
+            ForeColor = Theme.Text,
+            Font = Theme.Body,
+            ShowImageMargin = false
+        };
+        menu.Items.Add("Open Perch", null, (_, _) => RestoreWindow());
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Exit Perch", null, (_, _) => ExitApp());
+
+        _tray.Icon = _appIcon;
+        _tray.Text = "Perch";
+        _tray.ContextMenuStrip = menu;
+        _tray.Visible = true;
+        _tray.DoubleClick += (_, _) => RestoreWindow();
+    }
+
+    /// <summary>Suppresses the very first Show when Windows started us at sign-in.</summary>
+    protected override void SetVisibleCore(bool value)
+    {
+        if (_startHidden && value)
+        {
+            _startHidden = false;
+            base.SetVisibleCore(false);
+            return;
+        }
+
+        base.SetVisibleCore(value);
+    }
+
+    void HideToTray()
+    {
+        Hide();
+
+        // Closing used to be the moment settings were written; keep that true now that
+        // it no longer ends the process.
+        _settings.LastTarget = ReadTarget();
+        _settings.Save();
+
+        if (_settings.TrayHintShown) return;
+        _settings.TrayHintShown = true;
+        _settings.Save();
+        _tray.ShowBalloonTip(4000, "Perch is still running",
+            "It sits by the clock so the schedule keeps working. Right-click the icon to exit.",
+            ToolTipIcon.Info);
+    }
+
+    void RestoreWindow()
+    {
+        Show();
+        WindowState = FormWindowState.Normal;
+        Activate();
+    }
+
+    void ExitApp()
+    {
+        _exiting = true;
+        Close();
     }
 
     void ShowMenu()
@@ -311,6 +424,7 @@ public sealed class MainForm : Form
 
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Open settings folder", null, (_, _) => OpenSettingsFolder());
+        menu.Items.Add("Exit Perch", null, (_, _) => ExitApp());
 
         StyleDropDown(menu);
         menu.Show(_menu, new Point(_menu.Width, _menu.Height), ToolStripDropDownDirection.BelowLeft);
@@ -621,6 +735,7 @@ public sealed class MainForm : Form
 
     void SetDisconnectedUi(string status)
     {
+        _tray.Text = "Perch - not connected";
         _subtitle.Text = "Not connected";
         _gauge.Value = null;
         _status.Text = status;

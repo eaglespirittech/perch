@@ -11,6 +11,9 @@ public sealed class Settings
     public double Preset1 { get; set; } = 72.0;
     public double Preset2 { get; set; } = 110.0;
     public bool ScheduleEnabled { get; set; }
+
+    /// <summary>Whether the "still running down here" balloon has been shown once.</summary>
+    public bool TrayHintShown { get; set; }
     public WeekSchedule Schedule { get; set; } = new();
 
     static string PathIn(string folder) => System.IO.Path.Combine(

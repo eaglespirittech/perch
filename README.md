@@ -33,13 +33,26 @@ The window follows the Windows light/dark setting and your accent colour. Set
   nudge the desk a centimetre either way, toggle **Start with Windows**, or open the
   settings folder.
 
+## Closing and the notification area
+
+Closing the window parks Perch next to the clock rather than quitting, because the
+schedule only runs while the app does. From there:
+
+- Double-click the icon, or right-click and choose **Open Perch**, to bring the window
+  back. Its tooltip carries the current height.
+- **Exit Perch**, on that same menu or on the window's own menu, quits for real.
+
+Windows often files a new tray icon under the "Show hidden icons" chevron; drag it out
+onto the taskbar to keep it in sight.
+
 ## Start with Windows
 
 The menu item writes a per-user entry under
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, so it needs no admin rights and
 shows up in Task Manager's Startup tab, where it can also be disabled. Moving `Perch.exe`
 does not break it: on each launch the entry is rewritten to point at wherever the exe is
-running from.
+running from. The entry starts Perch with `--minimized`, so signing in leaves it waiting
+by the clock instead of opening a window.
 
 ## Schedule
 
