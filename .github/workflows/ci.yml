@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Build
+        run: dotnet build IdasenDeskControl.csproj -c Release -warnaserror
+
+      - name: Build the probe tool
+        run: dotnet build tools/DeskProbe/DeskProbe.csproj -c Release -warnaserror
+
+      - name: Test the schedule logic
+        run: dotnet run --project tests/ScheduleTests/ScheduleTests.csproj -c Release

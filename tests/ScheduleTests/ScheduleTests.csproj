@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Plain console app rather than a test framework: the schedule logic has no
+    dependencies, and the exit code (number of failed checks) is all CI needs.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ScheduleTests</AssemblyName>
+    <RootNamespace>IdasenDeskControl.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\Schedule.cs" Link="Schedule.cs" />
+  </ItemGroup>
+
+</Project>

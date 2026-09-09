@@ -1,0 +1,62 @@
+name: Release
+
+# Tag a commit v1.2.3 and push the tag; this builds the exe and publishes it
+# as a GitHub release asset.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Read version from the tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+            throw "Tag '${{ github.ref_name }}' is not a version tag like v1.2.3."
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Test
+        run: dotnet run --project tests/ScheduleTests/ScheduleTests.csproj -c Release
+
+      - name: Publish
+        shell: pwsh
+        run: |
+          dotnet publish IdasenDeskControl.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:Version=${{ steps.version.outputs.version }} `
+            -o dist
+          $name = "IdasenDeskControl-${{ steps.version.outputs.version }}-win-x64.exe"
+          Move-Item dist/IdasenDeskControl.exe "dist/$name"
+          (Get-FileHash "dist/$name" -Algorithm SHA256).Hash.ToLower() + "  $name" |
+            Out-File -FilePath "dist/$name.sha256" -Encoding ascii
+
+      - name: Create the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            (Get-ChildItem dist/*.exe, dist/*.sha256 | ForEach-Object { $_.FullName }) `
+            --title "${{ github.ref_name }}" `
+            --generate-notes
