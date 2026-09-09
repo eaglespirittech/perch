@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Perch</AssemblyName>
     <RootNamespace>Perch</RootNamespace>
-    <ApplicationIcon />
+    <ApplicationIcon>assets/perch.ico</ApplicationIcon>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 

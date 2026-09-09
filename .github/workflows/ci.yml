@@ -25,3 +25,16 @@ jobs:
 
       - name: Test the schedule logic
         run: dotnet run --project tests/ScheduleTests/ScheduleTests.csproj -c Release
+
+      # Catches a broken installer script here rather than halfway through a release.
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          dotnet publish Perch.csproj -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true -p:Version=0.0.0 -o dist
+
+          . ./packaging/find-iscc.ps1
+          & (Find-Iscc) /DAppVersion=0.0.0 packaging/perch.iss
+
+          Get-ChildItem dist | Format-Table Name, Length

@@ -7,7 +7,11 @@ height in cm, press Go.
 Not affiliated with or endorsed by Inter IKEA Systems B.V. IDÅSEN is their trademark;
 it appears here only to say which desk this controls.
 
-- `dist\Perch.exe` — self-contained single file, no .NET runtime needed.
+- **Installer** — `Perch-<version>-setup.exe` from the
+  [releases page](https://github.com/eaglespirittech/perch/releases). Installs per user, so
+  there is no UAC prompt, and it adds a Start Menu entry and an uninstall entry.
+- **Portable** — `Perch-<version>-win-x64.exe` is the same app as one self-contained file.
+  Neither needs the .NET runtime.
 - Settings (chosen device, presets, schedule) live in `%APPDATA%\Perch\settings.json`.
   A settings file from the app's earlier name is picked up automatically on first run.
 
@@ -131,12 +135,22 @@ exits with the number of failures, so CI needs no test framework.
 tests on every push and pull request.
 
 `.github/workflows/release.yml` fires on a version tag. It re-runs the tests, publishes a
-self-contained single-file exe stamped with the tag version, writes a SHA-256 sidecar, and
-attaches both to a generated GitHub release:
+self-contained single-file exe stamped with the tag version, builds the Inno Setup
+installer around it, writes a SHA-256 sidecar for each, and attaches everything to a
+generated GitHub release:
 
 ```
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The tag must look like `v1.2.3` or the workflow stops before building.
+The tag must look like `v1.2.3` or the workflow stops before building. CI builds the
+installer on every push too, so a broken `packaging/perch.iss` shows up before a release
+rather than during one.
+
+The app icon in `assets/perch.ico` is generated from the same code that draws the tray
+icon at runtime. After changing `AppIcon.Draw`, regenerate it with:
+
+```
+dotnet run --project tools/IconGen
+```
