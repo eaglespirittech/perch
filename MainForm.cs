@@ -1,13 +1,12 @@
+using System.Diagnostics;
 using System.Globalization;
+using Perch.Ui;
 
 namespace Perch;
 
 public sealed class MainForm : Form
 {
-    sealed record DeviceItem(string Name, string Id)
-    {
-        public override string ToString() => string.IsNullOrWhiteSpace(Name) ? Id : Name;
-    }
+    sealed record DeviceItem(string Name, string Id);
 
     readonly DeskController _desk = new();
     readonly Settings _settings = Settings.Load();
@@ -17,40 +16,49 @@ public sealed class MainForm : Form
     readonly SemaphoreSlim _gate = new(1, 1);
     CancellationTokenSource? _move;
 
-    readonly ComboBox _devices = new();
-    readonly Button _scan = new();
-    readonly Button _connect = new();
-    readonly Label _height = new();
+    readonly List<DeviceItem> _devices = new();
+    DeviceItem? _selected;
+
+    readonly Label _title = new();
     readonly Label _subtitle = new();
-    readonly NumericUpDown _target = new();
-    readonly Button _go = new();
-    readonly Button _stop = new();
-    readonly Button _up = new();
-    readonly Button _down = new();
-    readonly Button _preset1 = new();
-    readonly Button _preset2 = new();
-    readonly Button _save1 = new();
-    readonly Button _save2 = new();
-    readonly CheckBox _scheduleOn = new();
-    readonly Button _editSchedule = new();
+    readonly PerchButton _menu = new();
+    readonly HeightGauge _gauge = new();
+    readonly Card _moveCard = new();
+    readonly Card _field = new();
+    readonly TextBox _target = new();
+    readonly Label _fieldUnit = new();
+    readonly PerchButton _less = new();
+    readonly PerchButton _more = new();
+    readonly PerchButton _go = new();
+    readonly PerchButton _stop = new();
+    readonly Card _presetCard = new();
+    readonly PerchButton _preset1 = new();
+    readonly PerchButton _preset2 = new();
+    readonly PerchButton _save1 = new();
+    readonly PerchButton _save2 = new();
+    readonly Card _scheduleCard = new();
+    readonly ToggleSwitch _scheduleOn = new();
+    readonly Label _scheduleLabel = new();
+    readonly PerchButton _editSchedule = new();
     readonly Label _nextMove = new();
-    readonly StatusStrip _statusStrip = new();
-    readonly ToolStripStatusLabel _status = new();
+    readonly Label _status = new();
 
     public MainForm()
     {
         Text = "Perch";
-        ClientSize = new Size(420, 476);
+        AutoScaleMode = AutoScaleMode.Dpi;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        Font = new Font("Segoe UI", 9F);
+        Font = Theme.Body;
+        BackColor = Theme.Window;
 
         BuildLayout();
         WireEvents();
         RefreshPresetLabels();
+        ShowTarget(_settings.LastTarget);
 
-        _desk.HeightChanged += cm => OnUi(() => ShowHeight(cm));
+        _desk.HeightChanged += cm => OnUi(() => _gauge.Value = cm);
         _desk.ConnectionChanged += connected => OnUi(() =>
         {
             if (!connected) SetDisconnectedUi("The desk dropped the Bluetooth connection.");
@@ -58,211 +66,336 @@ public sealed class MainForm : Form
 
         _scheduler.Schedule = _settings.Schedule;
         _scheduler.Enabled = _settings.ScheduleEnabled;
-        _scheduleOn.Checked = _settings.ScheduleEnabled;
+        _scheduleOn.SetCheckedSilently(_settings.ScheduleEnabled);
         _scheduler.MoveRequested += (cm, reason) => OnUi(async () => await RunScheduledMoveAsync(cm, reason));
         _scheduler.Ticked += () => OnUi(ShowNextMove);
         ShowNextMove();
+
+        Theme.Changed += () => OnUi(ApplyTheme);
     }
+
+    // ---- layout ------------------------------------------------------------
+
+    const int Gutter = 20;
+    const int Width_ = 420;
+    const int Content = Width_ - Gutter * 2;
+    const int Pad = 16;
 
     void BuildLayout()
     {
-        var deskLabel = new Label { Text = "Desk:", Location = new Point(12, 14), AutoSize = true };
+        var y = 18;
 
-        _devices.Location = new Point(52, 10);
-        _devices.Size = new Size(194, 23);
-        _devices.DropDownStyle = ComboBoxStyle.DropDownList;
+        Style(_title, "Perch", Theme.Title, Theme.Text, new Point(Gutter, y));
+        _menu.Text = "";
+        _menu.IsGlyph = true;
+        _menu.Kind = ButtonKind.Subtle;
+        _menu.Bounds = new Rectangle(Width_ - Gutter - 34, y, 34, 34);
 
-        _scan.Text = "Scan";
-        _scan.Location = new Point(250, 9);
-        _scan.Size = new Size(56, 25);
+        y += 34;
+        Style(_subtitle, "Not connected", Theme.Body, Theme.TextSecondary, new Point(Gutter, y));
 
-        _connect.Text = "Connect";
-        _connect.Location = new Point(312, 9);
-        _connect.Size = new Size(96, 25);
+        y += 30;
+        _gauge.Bounds = new Rectangle(Gutter, y, Content, 132);
 
-        _height.Text = "--.- cm";
-        _height.Location = new Point(12, 48);
-        _height.Size = new Size(396, 58);
-        _height.TextAlign = ContentAlignment.MiddleCenter;
-        _height.Font = new Font("Segoe UI", 30F, FontStyle.Regular);
+        y += 132 + 12;
+        _moveCard.Bounds = new Rectangle(Gutter, y, Content, 88);
+        BuildMoveCard();
 
-        _subtitle.Text = "Not connected";
-        _subtitle.Location = new Point(12, 108);
-        _subtitle.Size = new Size(396, 20);
-        _subtitle.TextAlign = ContentAlignment.MiddleCenter;
-        _subtitle.ForeColor = SystemColors.GrayText;
+        y += 88 + 12;
+        _presetCard.Bounds = new Rectangle(Gutter, y, Content, 124);
+        BuildPresetCard();
 
-        var moveBox = new GroupBox
-        {
-            Text = "Move to",
-            Location = new Point(12, 138),
-            Size = new Size(396, 92)
-        };
+        y += 124 + 12;
+        _scheduleCard.Bounds = new Rectangle(Gutter, y, Content, 90);
+        BuildScheduleCard();
 
-        _target.Location = new Point(16, 28);
-        _target.Size = new Size(88, 29);
-        _target.Font = new Font("Segoe UI", 12F);
-        _target.DecimalPlaces = 1;
-        _target.Increment = 0.5M;
-        _target.Minimum = (decimal)DeskController.MinCm;
-        _target.Maximum = (decimal)DeskController.MaxCm;
-        _target.Value = Clamp((decimal)_settings.LastTarget);
-
-        var cmLabel = new Label { Text = "cm", Location = new Point(110, 35), AutoSize = true };
-
-        _go.Text = "Go";
-        _go.Location = new Point(142, 27);
-        _go.Size = new Size(90, 31);
-
-        _stop.Text = "Stop";
-        _stop.Location = new Point(238, 27);
-        _stop.Size = new Size(90, 31);
-
-        _up.Text = "+1";
-        _up.Location = new Point(338, 20);
-        _up.Size = new Size(42, 24);
-
-        _down.Text = "-1";
-        _down.Location = new Point(338, 48);
-        _down.Size = new Size(42, 24);
-
-        moveBox.Controls.AddRange(new Control[] { _target, cmLabel, _go, _stop, _up, _down });
-
-        var presetBox = new GroupBox
-        {
-            Text = "Presets",
-            Location = new Point(12, 240),
-            Size = new Size(396, 118)
-        };
-
-        _preset1.Location = new Point(16, 26);
-        _preset1.Size = new Size(180, 34);
-        _save1.Text = "Save current here";
-        _save1.Location = new Point(206, 26);
-        _save1.Size = new Size(172, 34);
-
-        _preset2.Location = new Point(16, 68);
-        _preset2.Size = new Size(180, 34);
-        _save2.Text = "Save current here";
-        _save2.Location = new Point(206, 68);
-        _save2.Size = new Size(172, 34);
-
-        presetBox.Controls.AddRange(new Control[] { _preset1, _save1, _preset2, _save2 });
-
-        var scheduleBox = new GroupBox
-        {
-            Text = "Schedule",
-            Location = new Point(12, 368),
-            Size = new Size(396, 82)
-        };
-
-        _scheduleOn.Text = "Run the schedule";
-        _scheduleOn.Location = new Point(16, 26);
-        _scheduleOn.Size = new Size(160, 26);
-
-        _editSchedule.Text = "Edit schedule...";
-        _editSchedule.Location = new Point(206, 22);
-        _editSchedule.Size = new Size(172, 30);
-
-        _nextMove.Location = new Point(16, 56);
-        _nextMove.Size = new Size(362, 18);
-        _nextMove.ForeColor = SystemColors.GrayText;
-
-        scheduleBox.Controls.AddRange(new Control[] { _scheduleOn, _editSchedule, _nextMove });
-
-        _status.Text = "Ready.";
-        _status.Spring = true;
-        _status.TextAlign = ContentAlignment.MiddleLeft;
-        _statusStrip.Items.Add(_status);
+        y += 90 + 14;
+        Style(_status, "Ready.", Theme.Caption, Theme.TextSecondary, new Point(Gutter, y));
+        _status.AutoSize = false;
+        _status.Size = new Size(Content, 42);
 
         Controls.AddRange(new Control[]
         {
-            deskLabel, _devices, _scan, _connect, _height, _subtitle,
-            moveBox, presetBox, scheduleBox, _statusStrip
+            _title, _subtitle, _menu, _gauge, _moveCard, _presetCard, _scheduleCard, _status
         });
 
+        ClientSize = new Size(Width_, y + 42 + 12);
         AcceptButton = _go;
     }
+
+    void BuildMoveCard()
+    {
+        _field.Fill = Theme.Field;
+        _field.Radius = Theme.ControlRadius;
+        _field.Bounds = new Rectangle(Pad + 40, 24, 110, 40);
+
+        _target.BorderStyle = BorderStyle.None;
+        _target.TextAlign = HorizontalAlignment.Center;
+        _target.Font = Theme.Value;
+        _target.BackColor = Theme.Field;
+        _target.ForeColor = Theme.Text;
+        _target.Bounds = new Rectangle(8, 10, 62, 22);
+
+        Style(_fieldUnit, "cm", Theme.Caption, Theme.TextSecondary, new Point(74, 15));
+        _fieldUnit.BackColor = Theme.Field;
+
+        _field.Controls.AddRange(new Control[] { _target, _fieldUnit });
+
+        _less.Text = ""; // minus
+        _more.Text = ""; // plus
+        foreach (var button in new[] { _less, _more })
+        {
+            button.IsGlyph = true;
+            button.Kind = ButtonKind.Standard;
+        }
+
+        _less.Bounds = new Rectangle(Pad, 24, 36, 40);
+        _more.Bounds = new Rectangle(Pad + 154, 24, 36, 40);
+
+        _go.Text = "Go";
+        _go.Kind = ButtonKind.Primary;
+        _go.Bounds = new Rectangle(Pad + 200, 24, 76, 40);
+
+        _stop.Text = "Stop";
+        _stop.Bounds = new Rectangle(Pad + 284, 24, 64, 40);
+
+        _moveCard.Controls.AddRange(new Control[] { _less, _field, _more, _go, _stop });
+    }
+
+    void BuildPresetCard()
+    {
+        _preset1.Bounds = new Rectangle(Pad, 18, 196, 40);
+        _preset2.Bounds = new Rectangle(Pad, 66, 196, 40);
+
+        _save1.Bounds = new Rectangle(Pad + 204, 18, 144, 40);
+        _save2.Bounds = new Rectangle(Pad + 204, 66, 144, 40);
+
+        foreach (var button in new[] { _save1, _save2 })
+        {
+            button.Text = "Save current";
+            button.Kind = ButtonKind.Subtle;
+        }
+
+        _presetCard.Controls.AddRange(new Control[] { _preset1, _preset2, _save1, _save2 });
+    }
+
+    void BuildScheduleCard()
+    {
+        _scheduleOn.Bounds = new Rectangle(Pad, 22, 44, 22);
+
+        Style(_scheduleLabel, "Run the schedule", Theme.Body, Theme.Text, new Point(Pad + 56, 24));
+        _scheduleLabel.BackColor = Theme.Surface;
+
+        _editSchedule.Text = "Edit schedule";
+        _editSchedule.Bounds = new Rectangle(Pad + 232, 18, 116, 34);
+
+        Style(_nextMove, "Not running.", Theme.Caption, Theme.TextSecondary, new Point(Pad, 58));
+        _nextMove.BackColor = Theme.Surface;
+
+        _scheduleCard.Controls.AddRange(new Control[] { _scheduleOn, _scheduleLabel, _editSchedule, _nextMove });
+    }
+
+    static void Style(Label label, string text, Font font, Color color, Point at)
+    {
+        label.Text = text;
+        label.Font = font;
+        label.ForeColor = color;
+        label.Location = at;
+        label.AutoSize = true;
+        label.BackColor = Color.Transparent;
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        Theme.ApplyWindowTrim(this);
+    }
+
+    void ApplyTheme()
+    {
+        BackColor = Theme.Window;
+        Font = Theme.Body;
+
+        _title.ForeColor = Theme.Text;
+        _subtitle.ForeColor = Theme.TextSecondary;
+        _status.ForeColor = Theme.TextSecondary;
+        _scheduleLabel.ForeColor = Theme.Text;
+        _scheduleLabel.BackColor = Theme.Surface;
+        _nextMove.ForeColor = Theme.TextSecondary;
+        _nextMove.BackColor = Theme.Surface;
+
+        _field.Fill = Theme.Field;
+        _target.BackColor = Theme.Field;
+        _target.ForeColor = Theme.Text;
+        _fieldUnit.BackColor = Theme.Field;
+        _fieldUnit.ForeColor = Theme.TextSecondary;
+
+        ToolStripManager.Renderer = new FluentMenuRenderer();
+        Theme.ApplyWindowTrim(this);
+        Invalidate(true);
+    }
+
+    // ---- wiring ------------------------------------------------------------
 
     void WireEvents()
     {
         Load += async (_, _) => await ScanAsync(autoConnect: true);
-        _scan.Click += async (_, _) => await ScanAsync(autoConnect: false);
-        _connect.Click += async (_, _) => await ToggleConnectionAsync();
-        _go.Click += async (_, _) => await MoveToAsync((double)_target.Value);
+        _menu.Click += (_, _) => ShowMenu();
+        _go.Click += async (_, _) => await MoveToAsync(ReadTarget());
         _stop.Click += async (_, _) => await StopAsync();
-        _up.Click += async (_, _) => await NudgeAsync(+1.0);
-        _down.Click += async (_, _) => await NudgeAsync(-1.0);
+        _less.Click += (_, _) => ShowTarget(ReadTarget() - 0.5);
+        _more.Click += (_, _) => ShowTarget(ReadTarget() + 0.5);
         _preset1.Click += async (_, _) => await MoveToAsync(_settings.Preset1);
         _preset2.Click += async (_, _) => await MoveToAsync(_settings.Preset2);
         _save1.Click += (_, _) => SavePreset(1);
         _save2.Click += (_, _) => SavePreset(2);
         _scheduleOn.CheckedChanged += (_, _) => ToggleSchedule();
         _editSchedule.Click += (_, _) => EditSchedule();
+        _target.Leave += (_, _) => ShowTarget(ReadTarget());
+
         FormClosing += (_, _) =>
         {
             _move?.Cancel();
-            _settings.LastTarget = (double)_target.Value;
+            _settings.LastTarget = ReadTarget();
             _settings.Save();
             _scheduler.Dispose();
             _desk.Dispose();
         };
     }
 
+    void ShowMenu()
+    {
+        var menu = new ContextMenuStrip
+        {
+            RenderMode = ToolStripRenderMode.ManagerRenderMode,
+            BackColor = Theme.Surface,
+            ForeColor = Theme.Text,
+            Font = Theme.Body,
+            ShowImageMargin = false,
+            ShowCheckMargin = true
+        };
+
+        var desks = new ToolStripMenuItem("Desk");
+        StyleDropDown(desks.DropDown);
+
+        if (_devices.Count == 0)
+        {
+            desks.DropDownItems.Add(new ToolStripMenuItem("No paired devices") { Enabled = false });
+        }
+        else
+        {
+            foreach (var device in _devices)
+            {
+                var item = new ToolStripMenuItem(device.Name) { Checked = device.Id == _selected?.Id };
+                var captured = device;
+                item.Click += async (_, _) => await SelectDeviceAsync(captured);
+                desks.DropDownItems.Add(item);
+            }
+        }
+
+        desks.DropDownItems.Add(new ToolStripSeparator());
+        desks.DropDownItems.Add("Scan again", null, async (_, _) => await ScanAsync(autoConnect: false));
+        menu.Items.Add(desks);
+
+        menu.Items.Add(_desk.IsConnected ? "Disconnect" : "Connect", null,
+            async (_, _) => await ToggleConnectionAsync());
+
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Nudge up 1 cm", null, async (_, _) => await NudgeAsync(+1.0));
+        menu.Items.Add("Nudge down 1 cm", null, async (_, _) => await NudgeAsync(-1.0));
+
+        menu.Items.Add(new ToolStripSeparator());
+        var startup = new ToolStripMenuItem("Start with Windows") { Checked = AutoStart.IsEnabled };
+        startup.Click += (_, _) => ToggleAutoStart(!startup.Checked);
+        menu.Items.Add(startup);
+
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Open settings folder", null, (_, _) => OpenSettingsFolder());
+
+        StyleDropDown(menu);
+        menu.Show(_menu, new Point(_menu.Width, _menu.Height), ToolStripDropDownDirection.BelowLeft);
+    }
+
+    static void StyleDropDown(ToolStripDropDown drop)
+    {
+        drop.RenderMode = ToolStripRenderMode.ManagerRenderMode;
+        drop.BackColor = Theme.Surface;
+        drop.ForeColor = Theme.Text;
+        drop.Font = Theme.Body;
+    }
+
+    void ToggleAutoStart(bool enabled)
+    {
+        var error = AutoStart.SetEnabled(enabled);
+        _status.Text = error is not null
+            ? $"Could not change the startup setting: {error}"
+            : enabled
+                ? "Perch will start when you sign in to Windows."
+                : "Perch will no longer start automatically.";
+    }
+
+    void OpenSettingsFolder()
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(Settings.Folder);
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{Settings.Folder}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            _status.Text = ex.Message;
+        }
+    }
+
     // ---- devices -----------------------------------------------------------
 
     async Task ScanAsync(bool autoConnect)
     {
-        _scan.Enabled = false;
         _status.Text = "Looking for paired Bluetooth devices...";
         try
         {
-            var devices = await DeskController.ListPairedDevicesAsync();
-            _devices.Items.Clear();
-            foreach (var device in devices)
-                _devices.Items.Add(new DeviceItem(device.Name, device.Id));
+            var found = await DeskController.ListPairedDevicesAsync();
+            _devices.Clear();
+            foreach (var device in found)
+                _devices.Add(new DeviceItem(device.Name, device.Id));
 
-            if (_devices.Items.Count == 0)
+            if (_devices.Count == 0)
             {
                 _status.Text = "No paired Bluetooth LE devices. Pair the desk in Windows Bluetooth settings first.";
                 return;
             }
 
-            var pick = PickDevice();
-            if (pick >= 0) _devices.SelectedIndex = pick;
+            _selected = PickDevice();
+            _status.Text = $"Found {_devices.Count} paired device(s).";
 
-            _status.Text = $"Found {_devices.Items.Count} paired device(s).";
-
-            if (autoConnect && pick >= 0 && ((DeviceItem)_devices.Items[pick]!).Id == _settings.DeviceId)
+            if (autoConnect && _selected is { } pick && pick.Id == _settings.DeviceId)
                 await ToggleConnectionAsync();
         }
         catch (Exception ex)
         {
             _status.Text = ex.Message;
         }
-        finally
-        {
-            _scan.Enabled = true;
-        }
     }
 
     /// <summary>Saved device first, otherwise the first thing that looks like a desk.</summary>
-    int PickDevice()
+    DeviceItem? PickDevice()
     {
-        for (var i = 0; i < _devices.Items.Count; i++)
-            if (((DeviceItem)_devices.Items[i]!).Id == _settings.DeviceId)
-                return i;
+        var saved = _devices.FirstOrDefault(d => d.Id == _settings.DeviceId);
+        if (saved is not null) return saved;
 
-        for (var i = 0; i < _devices.Items.Count; i++)
-        {
-            var name = ((DeviceItem)_devices.Items[i]!).Name;
-            if (name.Contains("desk", StringComparison.OrdinalIgnoreCase) ||
-                name.Contains("lift", StringComparison.OrdinalIgnoreCase) ||
-                name.Contains("linak", StringComparison.OrdinalIgnoreCase))
-                return i;
-        }
+        var looksRight = _devices.FirstOrDefault(d =>
+            d.Name.Contains("desk", StringComparison.OrdinalIgnoreCase) ||
+            d.Name.Contains("lift", StringComparison.OrdinalIgnoreCase) ||
+            d.Name.Contains("linak", StringComparison.OrdinalIgnoreCase));
 
-        return _devices.Items.Count > 0 ? 0 : -1;
+        return looksRight ?? _devices.FirstOrDefault();
+    }
+
+    async Task SelectDeviceAsync(DeviceItem device)
+    {
+        if (_desk.IsConnected) _desk.Disconnect();
+        _selected = device;
+        await ToggleConnectionAsync();
     }
 
     async Task ToggleConnectionAsync()
@@ -274,13 +407,12 @@ public sealed class MainForm : Form
             return;
         }
 
-        if (_devices.SelectedItem is not DeviceItem item)
+        if (_selected is not { } item)
         {
-            _status.Text = "Pick a device first.";
+            _status.Text = "Pick a desk from the menu first.";
             return;
         }
 
-        _connect.Enabled = false;
         _status.Text = $"Connecting to {item.Name}...";
         try
         {
@@ -289,7 +421,6 @@ public sealed class MainForm : Form
             _settings.DeviceName = item.Name;
             _settings.Save();
 
-            _connect.Text = "Disconnect";
             _subtitle.Text = $"Connected to {item.Name}";
             _status.Text = "Connected.";
         }
@@ -297,10 +428,6 @@ public sealed class MainForm : Form
         {
             _desk.Disconnect();
             SetDisconnectedUi(ex.Message);
-        }
-        finally
-        {
-            _connect.Enabled = true;
         }
     }
 
@@ -313,7 +440,6 @@ public sealed class MainForm : Form
         try
         {
             await _desk.ConnectAsync(_settings.DeviceId);
-            _connect.Text = "Disconnect";
             _subtitle.Text = $"Connected to {_settings.DeviceName ?? "desk"}";
             return true;
         }
@@ -331,11 +457,11 @@ public sealed class MainForm : Form
     {
         if (!_desk.IsConnected)
         {
-            _status.Text = "Connect to the desk first.";
+            _status.Text = "Connect to the desk first, from the menu at the top right.";
             return;
         }
 
-        _target.Value = Clamp((decimal)targetCm);
+        ShowTarget(targetCm);
         await RunMoveAsync(targetCm, $"Moving to {Cm(targetCm)}...");
     }
 
@@ -347,7 +473,7 @@ public sealed class MainForm : Form
             return;
         }
 
-        _target.Value = Clamp((decimal)targetCm);
+        ShowTarget(targetCm);
         await RunMoveAsync(targetCm, $"{char.ToUpperInvariant(reason[0])}{reason[1..]}: moving to {Cm(targetCm)}...");
     }
 
@@ -355,6 +481,7 @@ public sealed class MainForm : Form
     {
         await _gate.WaitAsync();
         SetBusy(true);
+        _gauge.Target = targetCm;
         _move = new CancellationTokenSource();
         _status.Text = statusText;
         try
@@ -374,6 +501,7 @@ public sealed class MainForm : Form
         {
             _move.Dispose();
             _move = null;
+            _gauge.Target = null;
             SetBusy(false);
             _gate.Release();
         }
@@ -423,8 +551,8 @@ public sealed class MainForm : Form
 
     void RefreshPresetLabels()
     {
-        _preset1.Text = $"Preset 1  -  {Cm(_settings.Preset1)}";
-        _preset2.Text = $"Preset 2  -  {Cm(_settings.Preset2)}";
+        _preset1.Text = $"Preset 1   ·   {Cm(_settings.Preset1)}";
+        _preset2.Text = $"Preset 2   ·   {Cm(_settings.Preset2)}";
     }
 
     void ToggleSchedule()
@@ -473,31 +601,42 @@ public sealed class MainForm : Form
 
     // ---- plumbing ----------------------------------------------------------
 
-    void ShowHeight(double cm) => _height.Text = Cm(cm);
+    double ReadTarget()
+    {
+        var text = _target.Text.Replace("cm", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+        if (!double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out var cm) &&
+            !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out cm))
+            return _settings.LastTarget;
 
-    static string Cm(double cm) => $"{cm.ToString("0.0", CultureInfo.InvariantCulture)} cm";
+        return Clamp(cm);
+    }
+
+    void ShowTarget(double cm)
+    {
+        cm = Clamp(cm);
+        _target.Text = cm.ToString("0.0", CultureInfo.CurrentCulture);
+    }
+
+    static string Cm(double cm) => $"{cm.ToString("0.0", CultureInfo.CurrentCulture)} cm";
 
     void SetDisconnectedUi(string status)
     {
-        _connect.Text = "Connect";
         _subtitle.Text = "Not connected";
-        _height.Text = "--.- cm";
+        _gauge.Value = null;
         _status.Text = status;
     }
 
     void SetBusy(bool busy)
     {
         _go.Enabled = !busy;
-        _up.Enabled = !busy;
-        _down.Enabled = !busy;
+        _less.Enabled = !busy;
+        _more.Enabled = !busy;
         _preset1.Enabled = !busy;
         _preset2.Enabled = !busy;
-        _connect.Enabled = !busy;
-        _scan.Enabled = !busy;
+        _menu.Enabled = !busy;
     }
 
-    static decimal Clamp(decimal cm) =>
-        Math.Clamp(cm, (decimal)DeskController.MinCm, (decimal)DeskController.MaxCm);
+    static double Clamp(double cm) => Math.Clamp(cm, DeskController.MinCm, DeskController.MaxCm);
 
     void OnUi(Action action)
     {

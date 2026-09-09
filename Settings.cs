@@ -20,6 +20,9 @@ public sealed class Settings
 
     static readonly string Path = PathIn("Perch");
 
+    /// <summary>The folder holding settings.json, for the "open settings folder" menu item.</summary>
+    public static string Folder => System.IO.Path.GetDirectoryName(Path)!;
+
     /// <summary>Where settings lived before the app was called Perch. Read once, then left alone.</summary>
     static readonly string LegacyPath = PathIn("IdasenDeskControl");
 

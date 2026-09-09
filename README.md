@@ -21,16 +21,29 @@ it appears here only to say which desk this controls.
 
 ## Using it
 
-- **Scan / Connect** — picks up paired BLE devices. The saved desk is auto-selected and
-  auto-connected on the next launch.
-- **Move to** — enter a height between 62.0 and 127.0 cm and press Go (Enter works too).
-  `+1` / `-1` nudge by a centimetre. **Stop** halts a move in progress.
-- **Presets** — two slots; "Save current here" captures the height the desk is at now.
-- **Schedule** — see below.
+The window follows the Windows light/dark setting and your accent colour. Set
+`PERCH_THEME=dark` or `PERCH_THEME=light` to override it.
+
+- **Height** - the big readout is where the desk is now; the bar under it shows where that
+  sits in the desk's 62-127 cm travel.
+- **Move to** - type a height, or step it with the minus and plus buttons, then press Go
+  (Enter works too). **Stop** halts a move in progress.
+- **Presets** - two slots; "Save current" captures the height the desk is at now.
+- **Menu** (the dots, top right) - pick which paired desk to use, connect or disconnect,
+  nudge the desk a centimetre either way, toggle **Start with Windows**, or open the
+  settings folder.
+
+## Start with Windows
+
+The menu item writes a per-user entry under
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, so it needs no admin rights and
+shows up in Task Manager's Startup tab, where it can also be disabled. Moving `Perch.exe`
+does not break it: on each launch the entry is rewritten to point at wherever the exe is
+running from.
 
 ## Schedule
 
-Tick **Run the schedule** and press **Edit schedule...** for a row per weekday:
+Flip **Run the schedule** on and press **Edit schedule** for a row per weekday:
 
 | Column | Meaning |
 |--------|---------|
@@ -44,7 +57,7 @@ Tick **Run the schedule** and press **Edit schedule...** for a row per weekday:
 So `09:00`–`17:00`, stand at `50` for `10`, up `110`, return `72` means: every hour
 between 9 and 5, stand from :50 to :00 at 110 cm, then back to 72 cm.
 
-**Copy to** clones a finished row onto other days — all of them, just the weekdays, just
+**Copy** clones a finished row onto other days — all of them, just the weekdays, just
 the weekend, or one named day.
 
 Details worth knowing:
@@ -58,7 +71,8 @@ Details worth knowing:
 - If the day window closes while the desk is up, it comes back down at that point.
 - A scheduled move reconnects to the saved desk first if the connection has dropped, and
   waits its turn if you happen to be driving the desk by hand at that moment.
-- The app has to be running. There is no service or tray component.
+- The app has to be running for the schedule to fire. Switch on **Start with Windows**
+  from the menu so it always is; there is no separate service or tray component.
 
 ## How it talks to the desk
 
