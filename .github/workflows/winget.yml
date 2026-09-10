@@ -1,0 +1,42 @@
+name: Publish to WinGet
+
+# Opens the manifest-update pull request against microsoft/winget-pkgs whenever a
+# release is published. The very first version has to be submitted by hand with
+# wingetcreate - see "Package managers" in the README - because this only updates a
+# package that already exists there.
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, e.g. v0.2.0"
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      # The token is a classic PAT that only the repository owner can create, so this
+      # workflow no-ops rather than failing on forks or before it has been set up.
+      - name: Check for a WinGet token
+        id: guard
+        run: |
+          if [ -z "${{ secrets.WINGET_TOKEN }}" ]; then
+            echo "WINGET_TOKEN is not set, so there is nothing to publish." >> "$GITHUB_STEP_SUMMARY"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Submit to winget-pkgs
+        if: steps.guard.outputs.ready == 'true'
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: EagleSpirit.Perch
+          # Only the installer belongs in WinGet; the portable exes are for people who
+          # would rather not install anything.
+          installers-regex: 'setup\.exe$'
+          release-tag: ${{ inputs.tag || github.event.release.tag_name }}
+          token: ${{ secrets.WINGET_TOKEN }}

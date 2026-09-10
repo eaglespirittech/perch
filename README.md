@@ -155,6 +155,39 @@ Exit codes:
 
 A failure with `--json` still prints an object: `{"ok": false, "error": "...", "code": 3}`.
 
+## Package managers
+
+### Scoop
+
+```powershell
+scoop bucket add eaglespirit https://github.com/eaglespirittech/scoop-bucket
+scoop install perch
+```
+
+The manifest lives in [eaglespirittech/scoop-bucket](https://github.com/eaglespirittech/scoop-bucket).
+Its Excavator workflow watches this repository's releases every four hours and commits new
+versions and hashes by itself, so a release reaches Scoop users without anyone editing JSON.
+
+### WinGet
+
+`.github/workflows/winget.yml` opens the manifest-update pull request against
+[microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) whenever a release is
+published, under the identifier `EagleSpirit.Perch`. Two things have to be set up once:
+
+1. **A token.** Create a *classic* personal access token with the `public_repo` scope
+   (fine-grained tokens are not supported by the action) and save it as a repository
+   secret named `WINGET_TOKEN`. Until that exists the workflow deliberately does nothing.
+2. **The first submission.** The action updates a package that already exists in
+   winget-pkgs, so version one goes in by hand:
+
+   ```powershell
+   winget install Microsoft.WingetCreate
+   wingetcreate new https://github.com/eaglespirittech/perch/releases/download/v0.2.0/Perch-0.2.0-setup.exe
+   ```
+
+   Answer its prompts, let it submit the pull request, and wait for a maintainer to merge
+   it. After that every release is automatic.
+
 ## Build
 
 ```
