@@ -14,7 +14,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- tools/ and tests/ hold their own projects -->
+    <!-- cli/, tools/ and tests/ hold their own projects -->
+    <Compile Remove="cli\**" />
+    <None Remove="cli\**" />
     <Compile Remove="tools\**" />
     <None Remove="tools\**" />
     <Compile Remove="tests\**" />

@@ -154,7 +154,7 @@ public sealed class DeskController : IDisposable
     /// stream as "the operator let go of the button" and halts, which is what keeps
     /// the collision guard meaningful.
     /// </summary>
-    public async Task MoveToAsync(double targetCm, CancellationToken ct)
+    public async Task MoveToAsync(double targetCm, CancellationToken ct, TimeSpan? timeout = null)
     {
         if (_control is null || _referenceInput is null) throw new InvalidOperationException("Not connected.");
 
@@ -176,8 +176,11 @@ public sealed class DeskController : IDisposable
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
-                if (clock.Elapsed > TimeSpan.FromSeconds(60))
-                    throw new TimeoutException("The desk did not reach the target height within 60 seconds.");
+
+                var limit = timeout ?? TimeSpan.FromSeconds(60);
+                if (clock.Elapsed > limit)
+                    throw new TimeoutException(
+                        $"The desk did not reach the target height within {limit.TotalSeconds:0} seconds.");
 
                 await WriteAsync(_referenceInput, payload, preferWithoutResponse: true);
                 await Task.Delay(200, ct);

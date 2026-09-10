@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using Perch.Ipc;
 using Perch.Ui;
 
 namespace Perch;
@@ -43,6 +44,7 @@ public sealed class MainForm : Form
     readonly Label _nextMove = new();
     readonly Label _status = new();
 
+    readonly ControlServer _control;
     readonly NotifyIcon _tray = new();
     readonly System.Windows.Forms.Timer _startup = new();
     Icon? _appIcon;
@@ -64,6 +66,10 @@ public sealed class MainForm : Form
         BuildLayout();
         WireEvents();
         BuildTrayIcon();
+
+        // While the app runs it owns the desk's single Bluetooth connection, so it
+        // answers on behalf of perch-cli rather than making the CLI fight it for one.
+        _control = new ControlServer(HandleControlAsync);
         RefreshPresetLabels();
         ShowTarget(_settings.LastTarget);
 
@@ -301,6 +307,7 @@ public sealed class MainForm : Form
             _startup.Dispose();
             _scheduler.Dispose();
             _desk.Dispose();
+            _control.Dispose();
             _tray.Visible = false;
             _tray.Dispose();
             _appIcon?.Dispose();
@@ -591,25 +598,29 @@ public sealed class MainForm : Form
         await RunMoveAsync(targetCm, $"{char.ToUpperInvariant(reason[0])}{reason[1..]}: moving to {Cm(targetCm)}...");
     }
 
-    async Task RunMoveAsync(double targetCm, string statusText)
+    /// <summary>Returns null when the move succeeded, otherwise the reason it did not.</summary>
+    async Task<string?> RunMoveAsync(double targetCm, string statusText, TimeSpan? timeout = null)
     {
         await _gate.WaitAsync();
         SetBusy(true);
         _gauge.Target = targetCm;
         _move = new CancellationTokenSource();
         _status.Text = statusText;
+        string? failure = null;
         try
         {
-            await _desk.MoveToAsync(targetCm, _move.Token);
+            await _desk.MoveToAsync(targetCm, _move.Token, timeout);
             _status.Text = $"At {Cm(targetCm)}.";
         }
         catch (OperationCanceledException)
         {
             _status.Text = "Stopped.";
+            failure = "The move was stopped.";
         }
         catch (Exception ex)
         {
             _status.Text = ex.Message;
+            failure = ex.Message;
         }
         finally
         {
@@ -619,6 +630,8 @@ public sealed class MainForm : Form
             SetBusy(false);
             _gate.Release();
         }
+
+        return failure;
     }
 
     async Task NudgeAsync(double deltaCm)
@@ -711,6 +724,81 @@ public sealed class MainForm : Form
             : next.When.ToString("ddd HH:mm", CultureInfo.InvariantCulture);
         var what = next.To == DeskState.Stand ? "up" : "back down";
         _nextMove.Text = $"Next: {what} at {when}.";
+    }
+
+    // ---- requests from perch-cli -------------------------------------------
+
+    Task<ControlResponse> HandleControlAsync(ControlRequest request)
+    {
+        var completion = new TaskCompletionSource<ControlResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        OnUi(async () =>
+        {
+            try
+            {
+                completion.SetResult(await ExecuteControlAsync(request));
+            }
+            catch (Exception ex)
+            {
+                completion.SetResult(new ControlResponse(false, Error: ex.Message, Code: 4));
+            }
+        });
+
+        return completion.Task;
+    }
+
+    async Task<ControlResponse> ExecuteControlAsync(ControlRequest request)
+    {
+        if (!await EnsureConnectedAsync())
+            return new ControlResponse(false, Error:
+                "The Perch app is not connected to a desk. Open it and connect, or run the command with --direct.",
+                Code: 3);
+
+        switch (request.Command)
+        {
+            case "status":
+                return new ControlResponse(true, await _desk.ReadHeightAsync(), Device: _desk.DeviceName);
+
+            case "stop":
+                await StopAsync();
+                return new ControlResponse(true, _desk.CurrentCm, Device: _desk.DeviceName);
+
+            case "set" or "nudge" or "preset":
+            {
+                double target;
+                switch (request.Command)
+                {
+                    case "set":
+                        if (request.HeightCm is not { } height)
+                            return new ControlResponse(false, Error: "set needs a height.", Code: 1);
+                        target = height;
+                        break;
+
+                    case "nudge":
+                        target = (_desk.CurrentCm ?? await _desk.ReadHeightAsync()) + (request.DeltaCm ?? 0);
+                        break;
+
+                    default:
+                        target = request.Slot == 2 ? _settings.Preset2 : _settings.Preset1;
+                        break;
+                }
+
+                target = Clamp(target);
+                ShowTarget(target);
+
+                var timeout = request.TimeoutSeconds is { } seconds && seconds > 0
+                    ? TimeSpan.FromSeconds(seconds)
+                    : (TimeSpan?)null;
+
+                var failure = await RunMoveAsync(target, $"perch-cli: moving to {Cm(target)}...", timeout);
+                return failure is null
+                    ? new ControlResponse(true, _desk.CurrentCm ?? target, target, _desk.DeviceName)
+                    : new ControlResponse(false, _desk.CurrentCm, target, _desk.DeviceName, failure, 4);
+            }
+
+            default:
+                return new ControlResponse(false, Error: $"Unknown command \"{request.Command}\".", Code: 1);
+        }
     }
 
     // ---- plumbing ----------------------------------------------------------

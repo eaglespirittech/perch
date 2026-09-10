@@ -9,9 +9,10 @@ it appears here only to say which desk this controls.
 
 - **Installer** — `Perch-<version>-setup.exe` from the
   [releases page](https://github.com/eaglespirittech/perch/releases). Installs per user, so
-  there is no UAC prompt, and it adds a Start Menu entry and an uninstall entry.
-- **Portable** — `Perch-<version>-win-x64.exe` is the same app as one self-contained file.
-  Neither needs the .NET runtime.
+  there is no UAC prompt, and it adds a Start Menu entry, an uninstall entry and the
+  `perch-cli` command line tool.
+- **Portable** — `Perch-<version>-win-x64.exe` and `perch-cli-<version>-win-x64.exe` are
+  the same two programs as single self-contained files. Nothing needs the .NET runtime.
 - Settings (chosen device, presets, schedule) live in `%APPDATA%\Perch\settings.json`.
   A settings file from the app's earlier name is picked up automatically on first run.
 
@@ -33,7 +34,7 @@ The window follows the Windows light/dark setting and your accent colour. Set
 - **Move to** - type a height, or step it with the minus and plus buttons, then press Go
   (Enter works too). **Stop** halts a move in progress.
 - **Presets** - two slots; "Save current" captures the height the desk is at now.
-- **Menu** (the dots, top right) - pick which paired desk to use, connect or disconnect,
+- **Menu** (the dots, top right) — pick which paired desk to use, connect or disconnect,
   nudge the desk a centimetre either way, toggle **Start with Windows**, or open the
   settings folder.
 
@@ -107,20 +108,58 @@ second — the controller stops the moment that stream pauses, which is what kee
 anti-collision behaviour intact. `MoveToAsync` re-sends until the height settles within
 1.5 mm of the target, re-wakes the controller if it stalls, and gives up after 60 s.
 
-## tools\DeskProbe
+## perch-cli
 
-Read-only console helper for when the GUI will not connect:
+The installer puts `perch-cli.exe` next to the app and offers to add it to PATH, so it
+works from any terminal. It is also published on its own as a portable exe.
 
 ```
-DeskProbe                  # list paired Bluetooth LE devices
-DeskProbe LIFT             # connect to the first name match, print its height
-DeskProbe LIFT --watch     # keep printing height changes
+perch-cli list                    # paired devices; the saved desk is marked *
+perch-cli status                  # 109.0 cm
+perch-cli set 110.5               # move and wait until the desk settles
+perch-cli nudge -2                # relative move
+perch-cli preset 1                # one of the two heights saved in the app
+perch-cli stop
+perch-cli watch                   # print height changes until Ctrl+C
+perch-cli help
 ```
+
+Options: `--device <name|id>`, `--timeout <seconds>` (default 60), `--json`, `--quiet`,
+`--direct`.
+
+**The app and the CLI share the desk.** A desk accepts one Bluetooth connection at a
+time, so when the Perch app is running it owns that connection and the CLI hands the work
+to it over a per-user named pipe. When the app is not running, the CLI drives the desk
+itself. Commands behave the same either way, and `--json` reports which route was used.
+`--direct` forces the Bluetooth route.
+
+### For scripts and agents
+
+`--json` puts a single JSON object on stdout; progress chatter goes to stderr, so stdout
+stays parseable. `perch-cli help --json` returns a machine-readable description of every
+command, argument, option and exit code.
+
+```json
+{ "ok": true, "height_cm": 110.5, "target_cm": 110.5, "device": "Desk 9770", "via": "app" }
+```
+
+Exit codes:
+
+| Code | Meaning |
+|------|---------|
+| 0 | success |
+| 1 | bad usage or arguments |
+| 2 | no matching desk is paired with Windows |
+| 3 | could not connect; something else holds the desk's connection |
+| 4 | the move failed, timed out, or was interrupted |
+
+A failure with `--json` still prints an object: `{"ok": false, "error": "...", "code": 3}`.
 
 ## Build
 
 ```
 dotnet build Perch.csproj -c Release
+dotnet build cli/PerchCli.csproj -c Release
 dotnet run --project tests/ScheduleTests/ScheduleTests.csproj -c Release
 dotnet publish Perch.csproj -c Release -r win-x64 --self-contained true ^
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist
@@ -135,9 +174,9 @@ exits with the number of failures, so CI needs no test framework.
 tests on every push and pull request.
 
 `.github/workflows/release.yml` fires on a version tag. It re-runs the tests, publishes a
-self-contained single-file exe stamped with the tag version, builds the Inno Setup
-installer around it, writes a SHA-256 sidecar for each, and attaches everything to a
-generated GitHub release:
+self-contained single-file exe of the app and of the CLI, builds the Inno Setup installer
+(which carries both, sharing one copy of the runtime), writes a SHA-256 sidecar for each,
+and attaches everything to a generated GitHub release:
 
 ```
 git tag v1.0.0

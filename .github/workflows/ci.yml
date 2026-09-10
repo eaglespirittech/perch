@@ -20,8 +20,8 @@ jobs:
       - name: Build
         run: dotnet build Perch.csproj -c Release -warnaserror
 
-      - name: Build the probe tool
-        run: dotnet build tools/DeskProbe/DeskProbe.csproj -c Release -warnaserror
+      - name: Build the CLI
+        run: dotnet build cli/PerchCli.csproj -c Release -warnaserror
 
       - name: Test the schedule logic
         run: dotnet run --project tests/ScheduleTests/ScheduleTests.csproj -c Release
@@ -30,9 +30,10 @@ jobs:
       - name: Build the installer
         shell: pwsh
         run: |
-          dotnet publish Perch.csproj -c Release -r win-x64 --self-contained true `
-            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true -p:Version=0.0.0 -o dist
+          $common = @('-c', 'Release', '-r', 'win-x64', '--self-contained', 'true',
+                      '-p:PublishSingleFile=false', '-p:Version=0.0.0')
+          dotnet publish Perch.csproj @common -o dist/app
+          dotnet publish cli/PerchCli.csproj @common -o dist/app
 
           . ./packaging/find-iscc.ps1
           & (Find-Iscc) /DAppVersion=0.0.0 packaging/perch.iss

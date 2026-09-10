@@ -1,7 +1,7 @@
 name: Release
 
-# Tag a commit v1.2.3 and push the tag; this builds the installer and the portable
-# exe and publishes both as GitHub release assets.
+# Tag a commit v1.2.3 and push the tag; this builds the installer (app + CLI) and the
+# two portable exes, and publishes them as GitHub release assets.
 on:
   push:
     tags:
@@ -34,18 +34,30 @@ jobs:
       - name: Test
         run: dotnet run --project tests/ScheduleTests/ScheduleTests.csproj -c Release
 
-      - name: Publish
+      - name: Publish the portable single-file builds
         shell: pwsh
         run: |
-          dotnet publish Perch.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:Version=${{ steps.version.outputs.version }} `
-            -o dist
+          $common = @(
+            '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true',
+            '-p:PublishSingleFile=true', '-p:IncludeNativeLibrariesForSelfExtract=true',
+            '-p:EnableCompressionInSingleFile=true',
+            "-p:Version=${{ steps.version.outputs.version }}"
+          )
+          dotnet publish Perch.csproj @common -o dist
+          dotnet publish cli/PerchCli.csproj @common -o dist
+
+      - name: Publish the installer payload
+        shell: pwsh
+        run: |
+          # Not single-file here: both programs share one copy of the runtime, which
+          # roughly halves what the installer has to carry.
+          $common = @(
+            '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true',
+            '-p:PublishSingleFile=false',
+            "-p:Version=${{ steps.version.outputs.version }}"
+          )
+          dotnet publish Perch.csproj @common -o dist/app
+          dotnet publish cli/PerchCli.csproj @common -o dist/app
 
       - name: Build the installer
         shell: pwsh
@@ -56,7 +68,9 @@ jobs:
       - name: Name the artifacts and checksum them
         shell: pwsh
         run: |
-          Move-Item dist/Perch.exe "dist/Perch-${{ steps.version.outputs.version }}-win-x64.exe"
+          $v = "${{ steps.version.outputs.version }}"
+          Move-Item dist/Perch.exe "dist/Perch-$v-win-x64.exe"
+          Move-Item dist/perch-cli.exe "dist/perch-cli-$v-win-x64.exe"
           Remove-Item dist/*.pdb -ErrorAction SilentlyContinue
 
           Get-ChildItem dist/*.exe | ForEach-Object {
@@ -64,7 +78,7 @@ jobs:
               Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
           }
 
-          Get-ChildItem dist | Format-Table Name, Length
+          Get-ChildItem dist -File | Format-Table Name, Length
 
       - name: Create the release
         shell: pwsh
