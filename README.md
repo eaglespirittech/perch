@@ -7,6 +7,10 @@ height in cm, press Go.
 Not affiliated with or endorsed by Inter IKEA Systems B.V. IDÅSEN is their trademark;
 it appears here only to say which desk this controls.
 
+<!-- Renders as a player on github.com only; elsewhere this block shows nothing. The
+     asset is hosted by GitHub (uploaded via issue #1) rather than committed here. -->
+<video src="https://github.com/user-attachments/assets/eb18d4ef-208f-42ef-8afd-a6ed73128190" controls></video>
+
 - **Installer** — `Perch-<version>-setup.exe` from the
   [releases page](https://github.com/eaglespirittech/perch/releases). Installs per user, so
   there is no UAC prompt, and it adds a Start Menu entry, an uninstall entry and the
