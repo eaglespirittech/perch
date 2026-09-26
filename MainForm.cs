@@ -21,9 +21,10 @@ public sealed class MainForm : Form
     DeviceItem? _selected;
 
     readonly Label _title = new();
-    readonly Label _subtitle = new();
+    readonly StatusPill _pill = new();
     readonly PerchButton _menu = new();
     readonly HeightGauge _gauge = new();
+    readonly List<Label> _headings = new();
     readonly Card _moveCard = new();
     readonly Card _field = new();
     readonly TextBox _target = new();
@@ -32,16 +33,21 @@ public sealed class MainForm : Form
     readonly PerchButton _more = new();
     readonly PerchButton _go = new();
     readonly PerchButton _stop = new();
-    readonly Card _presetCard = new();
-    readonly PerchButton _preset1 = new();
-    readonly PerchButton _preset2 = new();
+    readonly Card _presetCard1 = new();
+    readonly Card _presetCard2 = new();
+    readonly PresetTile _preset1 = new();
+    readonly PresetTile _preset2 = new();
     readonly PerchButton _save1 = new();
     readonly PerchButton _save2 = new();
+    readonly Label _rule1 = new();
+    readonly Label _rule2 = new();
     readonly Card _scheduleCard = new();
+    readonly GlyphBadge _scheduleBadge = new();
     readonly ToggleSwitch _scheduleOn = new();
     readonly Label _scheduleLabel = new();
     readonly PerchButton _editSchedule = new();
     readonly Label _nextMove = new();
+    readonly Label _statusGlyph = new();
     readonly Label _status = new();
 
     readonly ControlServer _control;
@@ -56,7 +62,8 @@ public sealed class MainForm : Form
         _startHidden = startHidden;
 
         Text = "Perch";
-        AutoScaleMode = AutoScaleMode.Dpi;
+        // Layout is scaled by hand (see D and R) so custom painting and positions agree.
+        AutoScaleMode = AutoScaleMode.None;
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
@@ -88,6 +95,7 @@ public sealed class MainForm : Form
         _desk.HeightChanged += cm => OnUi(() =>
         {
             _gauge.Value = cm;
+            UpdateGaugeNote();
             _tray.Text = $"Perch - {Cm(cm)}";
         });
         _desk.ConnectionChanged += connected => OnUi(() =>
@@ -107,123 +115,174 @@ public sealed class MainForm : Form
 
     // ---- layout ------------------------------------------------------------
 
+    // Everything below is in 96-DPI pixels; D and R scale to the screen.
     const int Gutter = 20;
-    const int Width_ = 420;
+    const int Width_ = 440;
     const int Content = Width_ - Gutter * 2;
-    const int Pad = 16;
+    const int Pad = 14;
+
+    int D(float value) => (int)Math.Round(value * DeviceDpi / 96f);
+    Rectangle R(int x, int y, int width, int height) => new(D(x), D(y), D(width), D(height));
 
     void BuildLayout()
     {
-        var y = 18;
+        Style(_title, "Perch", Theme.Title, Theme.Text, new Point(D(66), D(15)));
+        _pill.Bounds = R(66, 43, 120, 22);
+        _pill.Set(ConnectionState.Offline, "Not connected");
 
-        Style(_title, "Perch", Theme.Title, Theme.Text, new Point(Gutter, y));
-        _menu.Text = "";
+        _menu.Text = ""; // more
         _menu.IsGlyph = true;
         _menu.Kind = ButtonKind.Subtle;
-        _menu.Bounds = new Rectangle(Width_ - Gutter - 34, y, 34, 34);
+        _menu.Radius = 18;
+        _menu.AccessibleName = "Menu";
+        _menu.Bounds = R(Width_ - Gutter - 36, 22, 36, 36);
 
-        y += 34;
-        Style(_subtitle, "Not connected", Theme.Body, Theme.TextSecondary, new Point(Gutter, y));
+        var y = 80;
+        _gauge.Bounds = R(Gutter, y, Content, 168);
 
-        y += 30;
-        _gauge.Bounds = new Rectangle(Gutter, y, Content, 132);
-
-        y += 132 + 12;
-        _moveCard.Bounds = new Rectangle(Gutter, y, Content, 88);
+        y += 168 + 18;
+        Heading("Move to", y);
+        _moveCard.Elevated = true;
+        _moveCard.Bounds = R(Gutter, y + 26, Content, 72);
         BuildMoveCard();
 
-        y += 88 + 12;
-        _presetCard.Bounds = new Rectangle(Gutter, y, Content, 124);
-        BuildPresetCard();
+        y += 26 + 72 + 18;
+        Heading("Presets", y);
+        BuildPresetCards(y + 26);
 
-        y += 124 + 12;
-        _scheduleCard.Bounds = new Rectangle(Gutter, y, Content, 90);
+        y += 26 + 104 + 18;
+        Heading("Schedule", y);
+        _scheduleCard.Elevated = true;
+        _scheduleCard.Bounds = R(Gutter, y + 26, Content, 72);
         BuildScheduleCard();
 
-        y += 90 + 14;
-        Style(_status, "Ready.", Theme.Caption, Theme.TextSecondary, new Point(Gutter, y));
+        y += 26 + 72 + 14;
+        Style(_statusGlyph, "", Theme.IconSmall, Theme.TextSecondary, new Point(D(Gutter + 2), D(y + 2)));
+        Style(_status, "Ready.", Theme.Caption, Theme.TextSecondary, new Point(D(Gutter + 22), D(y)));
         _status.AutoSize = false;
-        _status.Size = new Size(Content, 42);
+        _status.Size = new Size(D(Content - 22), D(36));
 
         Controls.AddRange(new Control[]
         {
-            _title, _subtitle, _menu, _gauge, _moveCard, _presetCard, _scheduleCard, _status
+            _title, _pill, _menu, _gauge, _moveCard, _presetCard1, _presetCard2, _scheduleCard, _statusGlyph, _status
         });
+        Controls.AddRange(_headings.ToArray());
 
-        ClientSize = new Size(Width_, y + 42 + 12);
+        ClientSize = new Size(D(Width_), D(y + 36 + 8));
         AcceptButton = _go;
+    }
+
+    void Heading(string text, int y)
+    {
+        var label = new Label();
+        Style(label, text, Theme.Heading, Theme.Text, new Point(D(Gutter + 2), D(y)));
+        _headings.Add(label);
     }
 
     void BuildMoveCard()
     {
+        // A capsule: minus, the height, plus.
         _field.Fill = Theme.Field;
-        _field.Radius = Theme.ControlRadius;
-        _field.Bounds = new Rectangle(Pad + 40, 24, 110, 40);
+        _field.Radius = 22;
+        _field.Bounds = R(Pad, 14, 184, 44);
+        FieldBox.TrackFocus(_field, _target);
 
         _target.BorderStyle = BorderStyle.None;
-        _target.TextAlign = HorizontalAlignment.Center;
+        _target.TextAlign = HorizontalAlignment.Right;
         _target.Font = Theme.Value;
         _target.BackColor = Theme.Field;
         _target.ForeColor = Theme.Text;
-        _target.Bounds = new Rectangle(8, 10, 62, 22);
+        _target.AccessibleName = "Target height in centimetres";
+        _target.Bounds = new Rectangle(D(44), 0, D(60), _target.Height);
+        _target.Top = (_field.Height - _target.Height) / 2;
 
-        Style(_fieldUnit, "cm", Theme.Caption, Theme.TextSecondary, new Point(74, 15));
+        Style(_fieldUnit, "cm", Theme.Caption, Theme.TextSecondary, Point.Empty);
         _fieldUnit.BackColor = Theme.Field;
-
-        _field.Controls.AddRange(new Control[] { _target, _fieldUnit });
+        _fieldUnit.Location = new Point(D(107), _target.Bottom - _fieldUnit.PreferredHeight - D(2));
 
         _less.Text = ""; // minus
         _more.Text = ""; // plus
+        _less.AccessibleName = "Lower the target";
+        _more.AccessibleName = "Raise the target";
         foreach (var button in new[] { _less, _more })
         {
             button.IsGlyph = true;
-            button.Kind = ButtonKind.Standard;
+            button.Kind = ButtonKind.Subtle;
+            button.Radius = 16;
         }
 
-        _less.Bounds = new Rectangle(Pad, 24, 36, 40);
-        _more.Bounds = new Rectangle(Pad + 154, 24, 36, 40);
+        // Inset far enough that the square buttons sit inside the capsule's round ends.
+        _less.Bounds = R(8, 6, 32, 32);
+        _more.Bounds = R(184 - 40, 6, 32, 32);
+        _field.Controls.AddRange(new Control[] { _less, _target, _fieldUnit, _more });
 
         _go.Text = "Go";
+        _go.Glyph = ""; // forward arrow
         _go.Kind = ButtonKind.Primary;
-        _go.Bounds = new Rectangle(Pad + 200, 24, 76, 40);
+        _go.Radius = 22;
+        _go.Bounds = R(Pad + 184 + 10, 14, 100, 44);
 
         _stop.Text = "Stop";
-        _stop.Bounds = new Rectangle(Pad + 284, 24, 64, 40);
+        _stop.Glyph = ""; // stop
+        _stop.Radius = 22;
+        _stop.Bounds = R(Pad + 184 + 10 + 100 + 8, 14, Content - Pad * 2 - 184 - 10 - 100 - 8, 44);
 
-        _moveCard.Controls.AddRange(new Control[] { _less, _field, _more, _go, _stop });
+        _moveCard.Controls.AddRange(new Control[] { _field, _go, _stop });
     }
 
-    void BuildPresetCard()
+    void BuildPresetCards(int y)
     {
-        _preset1.Bounds = new Rectangle(Pad, 18, 196, 40);
-        _preset2.Bounds = new Rectangle(Pad, 66, 196, 40);
+        const int gap = 10;
+        const int width = (Content - gap) / 2;
 
-        _save1.Bounds = new Rectangle(Pad + 204, 18, 144, 40);
-        _save2.Bounds = new Rectangle(Pad + 204, 66, 144, 40);
-
-        foreach (var button in new[] { _save1, _save2 })
+        void Build(Card card, PresetTile tile, PerchButton save, Label rule, int x, string badge)
         {
-            button.Text = "Save current";
-            button.Kind = ButtonKind.Subtle;
+            card.Elevated = true;
+            card.Bounds = R(x, y, width, 104);
+
+            tile.Badge = badge;
+            tile.Bounds = R(4, 4, width - 8, 62);
+
+            rule.AutoSize = false;
+            rule.BackColor = Theme.Border;
+            rule.Bounds = new Rectangle(D(14), D(69), D(width - 28), 1);
+
+            save.Text = "Save current height";
+            save.Glyph = ""; // save
+            save.Kind = ButtonKind.Subtle;
+            save.TextFont = Theme.Caption;
+            save.TextColor = Theme.TextSecondary;
+            save.Radius = 6;
+            save.Bounds = R(4, 72, width - 8, 28);
+
+            card.Controls.AddRange(new Control[] { tile, rule, save });
         }
 
-        _presetCard.Controls.AddRange(new Control[] { _preset1, _preset2, _save1, _save2 });
+        Build(_presetCard1, _preset1, _save1, _rule1, Gutter, "1");
+        Build(_presetCard2, _preset2, _save2, _rule2, Gutter + width + gap, "2");
     }
 
     void BuildScheduleCard()
     {
-        _scheduleOn.Bounds = new Rectangle(Pad, 22, 44, 22);
+        _scheduleBadge.Glyph = ""; // clock
+        _scheduleBadge.Bounds = R(Pad, 16, 40, 40);
 
-        Style(_scheduleLabel, "Run the schedule", Theme.Body, Theme.Text, new Point(Pad + 56, 24));
-        _scheduleLabel.BackColor = Theme.Surface;
+        Style(_scheduleLabel, "Stand every hour", Theme.BodyStrong, Theme.Text, new Point(D(Pad + 52), D(16)));
+        Style(_nextMove, "Not running.", Theme.Caption, Theme.TextSecondary, new Point(D(Pad + 52), D(38)));
 
-        _editSchedule.Text = "Edit schedule";
-        _editSchedule.Bounds = new Rectangle(Pad + 232, 18, 116, 34);
+        _scheduleOn.AccessibleName = "Run the schedule";
+        _scheduleOn.Bounds = R(Content - Pad - 44, 25, 44, 22);
 
-        Style(_nextMove, "Not running.", Theme.Caption, Theme.TextSecondary, new Point(Pad, 58));
-        _nextMove.BackColor = Theme.Surface;
+        _editSchedule.Text = "Edit";
+        _editSchedule.Glyph = ""; // pencil
+        _editSchedule.Kind = ButtonKind.Subtle;
+        _editSchedule.AccessibleName = "Edit schedule";
+        _editSchedule.Bounds = R(Content - Pad - 44 - 12 - 78, 18, 78, 36);
 
-        _scheduleCard.Controls.AddRange(new Control[] { _scheduleOn, _scheduleLabel, _editSchedule, _nextMove });
+        _scheduleCard.Controls.AddRange(new Control[]
+        {
+            _scheduleBadge, _scheduleLabel, _nextMove, _editSchedule, _scheduleOn
+        });
     }
 
     static void Style(Label label, string text, Font font, Color color, Point at)
@@ -234,6 +293,17 @@ public sealed class MainForm : Form
         label.Location = at;
         label.AutoSize = true;
         label.BackColor = Color.Transparent;
+    }
+
+    Bitmap? _headerIcon;
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        Theme.PaintShadows(e.Graphics, this);
+
+        _headerIcon ??= AppIcon.Draw(D(36));
+        e.Graphics.DrawImage(_headerIcon, D(Gutter), D(22));
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -248,12 +318,15 @@ public sealed class MainForm : Form
         Font = Theme.Body;
 
         _title.ForeColor = Theme.Text;
-        _subtitle.ForeColor = Theme.TextSecondary;
+        foreach (var heading in _headings) heading.ForeColor = Theme.Text;
         _status.ForeColor = Theme.TextSecondary;
+        _statusGlyph.ForeColor = Theme.TextSecondary;
         _scheduleLabel.ForeColor = Theme.Text;
-        _scheduleLabel.BackColor = Theme.Surface;
         _nextMove.ForeColor = Theme.TextSecondary;
-        _nextMove.BackColor = Theme.Surface;
+        _rule1.BackColor = Theme.Border;
+        _rule2.BackColor = Theme.Border;
+        _save1.TextColor = Theme.TextSecondary;
+        _save2.TextColor = Theme.TextSecondary;
 
         _field.Fill = Theme.Field;
         _target.BackColor = Theme.Field;
@@ -268,6 +341,9 @@ public sealed class MainForm : Form
         Icon = _appIcon;
         _tray.Icon = _appIcon;
         previous?.Dispose();
+
+        _headerIcon?.Dispose();
+        _headerIcon = null;
 
         Theme.ApplyWindowTrim(this);
         Invalidate(true);
@@ -311,6 +387,7 @@ public sealed class MainForm : Form
             _tray.Visible = false;
             _tray.Dispose();
             _appIcon?.Dispose();
+            _headerIcon?.Dispose();
         };
     }
 
@@ -332,6 +409,7 @@ public sealed class MainForm : Form
         menu.Items.Add("Open Perch", null, (_, _) => RestoreWindow());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit Perch", null, (_, _) => ExitApp());
+        Theme.StyleMenu(menu);
 
         _tray.Icon = _appIcon;
         _tray.Text = "Perch";
@@ -396,7 +474,6 @@ public sealed class MainForm : Form
         };
 
         var desks = new ToolStripMenuItem("Desk");
-        StyleDropDown(desks.DropDown);
 
         if (_devices.Count == 0)
         {
@@ -433,16 +510,8 @@ public sealed class MainForm : Form
         menu.Items.Add("Open settings folder", null, (_, _) => OpenSettingsFolder());
         menu.Items.Add("Exit Perch", null, (_, _) => ExitApp());
 
-        StyleDropDown(menu);
+        Theme.StyleMenu(menu);
         menu.Show(_menu, new Point(_menu.Width, _menu.Height), ToolStripDropDownDirection.BelowLeft);
-    }
-
-    static void StyleDropDown(ToolStripDropDown drop)
-    {
-        drop.RenderMode = ToolStripRenderMode.ManagerRenderMode;
-        drop.BackColor = Theme.Surface;
-        drop.ForeColor = Theme.Text;
-        drop.Font = Theme.Body;
     }
 
     void ToggleAutoStart(bool enabled)
@@ -535,6 +604,7 @@ public sealed class MainForm : Form
         }
 
         _status.Text = $"Connecting to {item.Name}...";
+        _pill.Set(ConnectionState.Connecting, $"Connecting to {item.Name}");
         try
         {
             await _desk.ConnectAsync(item.Id);
@@ -542,7 +612,7 @@ public sealed class MainForm : Form
             _settings.DeviceName = item.Name;
             _settings.Save();
 
-            _subtitle.Text = $"Connected to {item.Name}";
+            _pill.Set(ConnectionState.Online, $"Connected to {item.Name}");
             _status.Text = "Connected.";
         }
         catch (Exception ex)
@@ -561,7 +631,7 @@ public sealed class MainForm : Form
         try
         {
             await _desk.ConnectAsync(_settings.DeviceId);
-            _subtitle.Text = $"Connected to {_settings.DeviceName ?? "desk"}";
+            _pill.Set(ConnectionState.Online, $"Connected to {_settings.DeviceName ?? "desk"}");
             return true;
         }
         catch (Exception ex)
@@ -678,8 +748,20 @@ public sealed class MainForm : Form
 
     void RefreshPresetLabels()
     {
-        _preset1.Text = $"Preset 1   ·   {Cm(_settings.Preset1)}";
-        _preset2.Text = $"Preset 2   ·   {Cm(_settings.Preset2)}";
+        _preset1.Show("Preset 1", Cm(_settings.Preset1));
+        _preset2.Show("Preset 2", Cm(_settings.Preset2));
+        UpdateGaugeNote();
+    }
+
+    /// <summary>Tells the readout when the desk is sitting at one of the presets.</summary>
+    void UpdateGaugeNote()
+    {
+        _gauge.Note = _desk.CurrentCm switch
+        {
+            { } cm when Math.Abs(cm - _settings.Preset1) < 0.5 => "At Preset 1",
+            { } cm when Math.Abs(cm - _settings.Preset2) < 0.5 => "At Preset 2",
+            _ => null
+        };
     }
 
     void ToggleSchedule()
@@ -824,7 +906,7 @@ public sealed class MainForm : Form
     void SetDisconnectedUi(string status)
     {
         _tray.Text = "Perch - not connected";
-        _subtitle.Text = "Not connected";
+        _pill.Set(ConnectionState.Offline, "Not connected");
         _gauge.Value = null;
         _status.Text = status;
     }
@@ -837,6 +919,9 @@ public sealed class MainForm : Form
         _preset1.Enabled = !busy;
         _preset2.Enabled = !busy;
         _menu.Enabled = !busy;
+
+        // Stop only turns red while there is something to stop.
+        _stop.Kind = busy ? ButtonKind.Danger : ButtonKind.Standard;
     }
 
     static double Clamp(double cm) => Math.Clamp(cm, DeskController.MinCm, DeskController.MaxCm);

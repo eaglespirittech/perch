@@ -22,17 +22,14 @@ public class ToggleSwitch : Control
 
         _animation.Tick += (_, _) =>
         {
+            // Eased rather than linear: quick off the mark, settling gently.
             var target = _checked ? 1f : 0f;
-            var step = 0.18f;
+            _position += (target - _position) * 0.28f;
 
-            if (Math.Abs(_position - target) <= step)
+            if (Math.Abs(_position - target) < 0.01f)
             {
                 _position = target;
                 _animation.Stop();
-            }
-            else
-            {
-                _position += _position < target ? step : -step;
             }
 
             Invalidate();
@@ -109,7 +106,7 @@ public class ToggleSwitch : Control
     {
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.Clear(Parent?.BackColor ?? Theme.Surface);
+        g.Clear(Theme.Backdrop(this));
 
         var track = new RectangleF(0.5f, 0.5f, Width - 1f, Height - 1f);
         using var path = Theme.RoundedRect(track, Height / 2f);
@@ -123,17 +120,19 @@ public class ToggleSwitch : Control
         using (var pen = new Pen(border))
             g.DrawPath(pen, path);
 
-        var knobSize = Height - 8;
-        var travel = Width - knobSize - 8;
-        var knob = new RectangleF(4 + travel * on, 4, knobSize, knobSize);
+        // The knob swells slightly under the pointer, as the Windows 11 switch does.
+        var inset = _hovered ? Height * 0.2f : Height * 0.24f;
+        var knobSize = Height - inset * 2;
+        var travel = Width - knobSize - inset * 2;
+        var knob = new RectangleF(inset + travel * on, inset, knobSize, knobSize);
         using (var brush = new SolidBrush(Blend(Theme.IsDark ? Theme.Text : Theme.TextSecondary, Theme.OnAccent, on)))
             g.FillEllipse(brush, knob);
 
         if (Focused && ShowFocusCues)
         {
-            var focus = RectangleF.Inflate(track, 1.5f, 1.5f);
+            var focus = RectangleF.Inflate(track, -1f, -1f);
             using var focusPath = Theme.RoundedRect(focus, focus.Height / 2f);
-            using var pen = new Pen(Theme.Text, 1.5f) { DashStyle = DashStyle.Dot };
+            using var pen = new Pen(Theme.Text, this.Dp(1.5f));
             g.DrawPath(pen, focusPath);
         }
     }
