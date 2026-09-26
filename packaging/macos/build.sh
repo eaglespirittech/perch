@@ -60,8 +60,11 @@ sign() {
 
 echo "==> Signing (${identity:-ad hoc})"
 # Every file, then the bundle: the approach Avalonia documents for .NET apps, whose
-# Contents/MacOS holds managed assemblies alongside the native binaries.
-find "$bundle/Contents/MacOS" -type f -print0 | while IFS= read -r -d '' file; do sign "$file"; done
+# Contents/MacOS holds managed assemblies alongside the native binaries. The main
+# executable is left to the bundle signature, which has to come after everything beside
+# it is signed: codesign treats those files as the main executable's subcomponents.
+find "$bundle/Contents/MacOS" -type f ! -path "$bundle/Contents/MacOS/Perch" -print0 |
+    while IFS= read -r -d '' file; do sign "$file"; done
 sign "$bundle"
 codesign --verify --deep --strict "$bundle"
 
