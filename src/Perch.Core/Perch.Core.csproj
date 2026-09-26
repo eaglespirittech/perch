@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Everything that is the same on every operating system: the desk protocol, the
+    schedule, settings, the app/CLI control channel, and the session logic the window
+    drives. No platform APIs in here; those arrive through the interfaces in Platform/
+    and Bluetooth/.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Perch</RootNamespace>
+    <AssemblyName>Perch.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Perch.Tests" />
+  </ItemGroup>
+
+</Project>

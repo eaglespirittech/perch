@@ -1,0 +1,189 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:Perch.App.Controls">
+
+  <!--
+    The Perch look on top of Fluent. Colours are the "Perch.*" brushes Palette publishes,
+    always as DynamicResource so a light/dark or accent change repaints everything.
+  -->
+
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource Perch.Window}" />
+    <Setter Property="Foreground" Value="{DynamicResource Perch.Text}" />
+    <Setter Property="FontSize" Value="13" />
+  </Style>
+
+  <!-- Surfaces -->
+
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource Perch.Surface}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Perch.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="BoxShadow" Value="0 2 10 0 #16000000" />
+  </Style>
+
+  <Style Selector="Border.rule">
+    <Setter Property="Background" Value="{DynamicResource Perch.Border}" />
+    <Setter Property="Height" Value="1" />
+  </Style>
+
+  <Style Selector="Border.badge">
+    <Setter Property="Background" Value="{DynamicResource Perch.AccentSoft}" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Width" Value="40" />
+    <Setter Property="Height" Value="40" />
+  </Style>
+
+  <!-- Type -->
+
+  <Style Selector="TextBlock.title">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.heading">
+    <Setter Property="FontSize" Value="13.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Margin" Value="2,18,0,8" />
+  </Style>
+  <Style Selector="TextBlock.strong">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.caption">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource Perch.TextSecondary}" />
+  </Style>
+  <Style Selector="TextBlock.value">
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- Buttons: standard, primary, subtle, danger. Fluent paints the template's
+       ContentPresenter, so the state colours go there. -->
+
+  <Style Selector="Button">
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Background" Value="{DynamicResource Perch.Field}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Perch.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Foreground" Value="{DynamicResource Perch.Text}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Perch.FieldHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Perch.Border}" />
+    <Setter Property="Foreground" Value="{DynamicResource Perch.Text}" />
+  </Style>
+  <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Perch.FieldPressed}" />
+  </Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Perch.Field}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Perch.Border}" />
+    <Setter Property="Foreground" Value="{DynamicResource Perch.TextDisabled}" />
+  </Style>
+
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource Perch.Accent}" />
+    <Setter Property="Foreground" Value="{DynamicResource Perch.OnAccent}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Perch.AccentHover}" />
+    <Setter Property="Foreground" Value="{DynamicResource Perch.OnAccent}" />
+  </Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Perch.AccentPressed}" />
+  </Style>
+
+  <Style Selector="Button.subtle">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.subtle:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.quiet">
+    <Setter Property="Foreground" Value="{DynamicResource Perch.TextSecondary}" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+  <Style Selector="Button.danger">
+    <Setter Property="Background" Value="{DynamicResource Perch.DangerSoft}" />
+    <Setter Property="Foreground" Value="{DynamicResource Perch.Danger}" />
+  </Style>
+  <Style Selector="Button.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource Perch.DangerSoftHover}" />
+    <Setter Property="Foreground" Value="{DynamicResource Perch.Danger}" />
+  </Style>
+
+  <Style Selector="Button.round">
+    <Setter Property="CornerRadius" Value="22" />
+  </Style>
+
+  <!-- A preset: a big tile with a numbered badge, its name and its height. -->
+  <Style Selector="Button.tile">
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="10,8" />
+  </Style>
+  <Style Selector="Button.tile Border.number">
+    <Setter Property="Background" Value="{DynamicResource Perch.AccentSoft}" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Width" Value="36" />
+    <Setter Property="Height" Value="36" />
+  </Style>
+  <Style Selector="Button.tile Border.number TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Perch.Accent}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Text entry, as a soft well rather than a boxed field. -->
+  <Style Selector="TextBox">
+    <Setter Property="Background" Value="{DynamicResource Perch.Field}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Perch.Border}" />
+    <Setter Property="Foreground" Value="{DynamicResource Perch.Text}" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="MinHeight" Value="30" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="{DynamicResource Perch.FieldHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Perch.Border}" />
+  </Style>
+  <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="{DynamicResource Perch.Field}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Perch.Accent}" />
+  </Style>
+  <Style Selector="TextBox.bare">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="TextBox.bare:pointerover /template/ Border#PART_BorderElement, TextBox.bare:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <!-- The connection pill. -->
+  <Style Selector="Border.pill">
+    <Setter Property="CornerRadius" Value="11" />
+    <Setter Property="Padding" Value="9,3,11,3" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+
+  <Style Selector="MenuFlyoutPresenter, ContextMenu">
+    <Setter Property="Background" Value="{DynamicResource Perch.Surface}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Perch.Border}" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+
+  <Style Selector="c|Glyph">
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+  </Style>
+</Styles>

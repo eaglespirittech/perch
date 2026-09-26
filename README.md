@@ -1,8 +1,9 @@
 # Perch
 
-Sit/stand desk control for the IKEA IDÅSEN. A small Windows app that drives the desk to
-an exact height over Bluetooth LE, with presets and an hourly stand schedule. Type a
-height in cm, press Go.
+Sit/stand desk control for the IKEA IDÅSEN. A small app for **Windows and macOS** that
+drives the desk to an exact height over Bluetooth LE, with presets and an hourly stand
+schedule. Type a height in cm, press Go. The `perch-cli` command line tool comes with it
+on both.
 
 Not affiliated with or endorsed by Inter IKEA Systems B.V. IDÅSEN is their trademark;
 it appears here only to say which desk this controls.
@@ -10,6 +11,8 @@ it appears here only to say which desk this controls.
 <!-- Renders as a player on github.com only; elsewhere this block shows nothing. The
      asset is hosted by GitHub (uploaded via issue #1) rather than committed here. -->
 <video src="https://github.com/user-attachments/assets/eb18d4ef-208f-42ef-8afd-a6ed73128190" controls></video>
+
+### Windows
 
 - **Installer** — `Perch-<version>-setup.exe` from the
   [releases page](https://github.com/eaglespirittech/perch/releases). Installs per user, so
@@ -20,7 +23,25 @@ it appears here only to say which desk this controls.
 - Settings (chosen device, presets, schedule) live in `%APPDATA%\Perch\settings.json`.
   A settings file from the app's earlier name is picked up automatically on first run.
 
+### macOS (12 Monterey or later)
+
+- **Disk image** — `Perch-<version>-macos-arm64.dmg` for Apple silicon, or
+  `-macos-x64.dmg` for Intel Macs. Drag Perch to Applications.
+- **CLI only** — `perch-cli-<version>-macos-<arch>.tar.gz` holds `perch-cli` and
+  `perch-ble`, its Bluetooth helper. Keep the two together, anywhere on your PATH.
+- Settings live in `~/Library/Application Support/Perch/settings.json`.
+
+Unless a release was signed with a Developer ID (see [Releasing](#releasing)), macOS
+refuses to open it the first time. Right-click Perch in Applications and choose **Open**,
+or clear the quarantine flag once:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Perch.app
+```
+
 ## Before first use
+
+**Windows**
 
 1. Pair the desk in **Settings → Bluetooth & devices → Add device → Bluetooth**.
    Hold the small pairing button on the control box under the desktop until its LED
@@ -28,10 +49,19 @@ it appears here only to say which desk this controls.
 2. Close the IKEA *Desk Control* phone app. The desk accepts one Bluetooth connection
    at a time, and whoever holds it wins.
 
+**macOS**
+
+1. There is nothing to pair in System Settings: Perch finds the desk by scanning. Press a
+   button on the desk to wake it, then pick it from the menu's **Desk** list. If macOS
+   asks to pair, hold the pairing button on the control box and accept.
+2. The first time, macOS asks whether Perch may use Bluetooth; allow it. (It lives under
+   **System Settings → Privacy & Security → Bluetooth** after that.)
+3. Close the IKEA *Desk Control* phone app, as above.
+
 ## Using it
 
-The window follows the Windows light/dark setting and your accent colour. Set
-`PERCH_THEME=dark` or `PERCH_THEME=light` to override it.
+The window follows the system light/dark setting and your accent colour, on either OS.
+Set `PERCH_THEME=dark` or `PERCH_THEME=light` to override it.
 
 - **Height** - the big readout is where the desk is now, next to a small drawing of the desk
   that rises and falls with it; the bar under it shows where that sits in the desk's
@@ -40,30 +70,38 @@ The window follows the Windows light/dark setting and your accent colour. Set
   (Enter works too). **Stop** halts a move in progress.
 - **Presets** - two slots; press one to move there. "Save current height" captures the
   height the desk is at now.
-- **Menu** (the dots, top right) — pick which paired desk to use, connect or disconnect,
-  nudge the desk a centimetre either way, toggle **Start with Windows**, or open the
-  settings folder.
+- **Menu** (the dots, top right) — pick which desk to use, connect or disconnect,
+  nudge the desk a centimetre either way, toggle **Start with Windows** / **Open at
+  Login**, or open the settings folder.
 
-## Closing and the notification area
+## Closing: the notification area and the menu bar
 
-Closing the window parks Perch next to the clock rather than quitting, because the
-schedule only runs while the app does. From there:
+Closing the window parks Perch in the notification area (Windows) or the menu bar (macOS)
+rather than quitting, because the schedule only runs while the app does. From there:
 
-- Double-click the icon, or right-click and choose **Open Perch**, to bring the window
-  back. Its tooltip carries the current height.
-- **Exit Perch**, on that same menu or on the window's own menu, quits for real.
+- Click the icon, or open its menu and choose **Open Perch**, to bring the window back.
+  On Windows its tooltip carries the current height. On macOS, clicking Perch in the
+  Dock works too.
+- **Quit Perch**, on that same menu or on the window's own menu, quits for real (as does
+  ⌘Q on macOS).
 
 Windows often files a new tray icon under the "Show hidden icons" chevron; drag it out
 onto the taskbar to keep it in sight.
 
-## Start with Windows
+## Start at sign-in
 
-The menu item writes a per-user entry under
+**Windows — Start with Windows.** The menu item writes a per-user entry under
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, so it needs no admin rights and
 shows up in Task Manager's Startup tab, where it can also be disabled. Moving `Perch.exe`
 does not break it: on each launch the entry is rewritten to point at wherever the exe is
 running from. The entry starts Perch with `--minimized`, so signing in leaves it waiting
 by the clock instead of opening a window.
+
+**macOS — Open at Login.** The menu item writes a per-user LaunchAgent,
+`~/Library/LaunchAgents/com.eaglespirit.perch.plist`, which starts Perch.app minimised
+into the menu bar. It needs no admin rights and appears under **System Settings →
+General → Login Items**, where it can be switched off. Moving Perch.app is handled the
+same way as on Windows.
 
 ## Schedule
 
@@ -96,7 +134,7 @@ Details worth knowing:
 - A scheduled move reconnects to the saved desk first if the connection has dropped, and
   waits its turn if you happen to be driving the desk by hand at that moment.
 - The app has to be running for the schedule to fire. Switch on **Start with Windows**
-  from the menu so it always is; there is no separate service or tray component.
+  (or **Open at Login**) from the menu so it always is; there is no separate service.
 
 ## How it talks to the desk
 
@@ -116,11 +154,23 @@ anti-collision behaviour intact. `MoveToAsync` re-sends until the height settles
 
 ## perch-cli
 
-The installer puts `perch-cli.exe` next to the app and offers to add it to PATH, so it
-works from any terminal. It is also published on its own as a portable exe.
+The same command line tool on both systems.
+
+- **Windows** — the installer puts `perch-cli.exe` next to the app and offers to add it
+  to PATH, so it works from any terminal. It is also published on its own as a portable
+  exe.
+- **macOS** — it ships inside Perch.app; link it onto your PATH once:
+
+  ```bash
+  sudo ln -sf /Applications/Perch.app/Contents/MacOS/perch-cli /usr/local/bin/perch-cli
+  ```
+
+  Or use the standalone tarball. When the CLI drives the desk itself (the app is not
+  running, or `--direct`), macOS asks the terminal you run it from for Bluetooth
+  permission the first time.
 
 ```
-perch-cli list                    # paired devices; the saved desk is marked *
+perch-cli list                    # desks; the saved desk is marked *
 perch-cli status                  # 109.0 cm
 perch-cli set 110.5               # move and wait until the desk settles
 perch-cli nudge -2                # relative move
@@ -135,7 +185,8 @@ Options: `--device <name|id>`, `--timeout <seconds>` (default 60), `--json`, `--
 
 **The app and the CLI share the desk.** A desk accepts one Bluetooth connection at a
 time, so when the Perch app is running it owns that connection and the CLI hands the work
-to it over a per-user named pipe. When the app is not running, the CLI drives the desk
+to it over a per-user named pipe (a Unix domain socket on macOS) that only the same user
+can connect to. When the app is not running, the CLI drives the desk
 itself. Commands behave the same either way, and `--json` reports which route was used.
 `--direct` forces the Bluetooth route.
 
@@ -155,7 +206,7 @@ Exit codes:
 |------|---------|
 | 0 | success |
 | 1 | bad usage or arguments |
-| 2 | no matching desk is paired with Windows |
+| 2 | no matching desk was found (not paired on Windows, not in range on macOS) |
 | 3 | could not connect; something else holds the desk's connection |
 | 4 | the move failed, timed out, or was interrupted |
 
@@ -194,41 +245,108 @@ published, under the identifier `EagleSpirit.Perch`. Two things have to be set u
    Answer its prompts, let it submit the pull request, and wait for a maintainer to merge
    it. After that every release is automatic.
 
+## How the code is organised
+
+One codebase for both systems. Everything that can be shared is, and the few things that
+cannot sit behind interfaces with one implementation per OS.
+
+```
+src/
+  Perch.Core/        net9.0, no platform APIs. The Linak protocol and move loop
+                     (DeskController), the session logic the window drives
+                     (DeskSession), schedule, settings, the app/CLI pipe, and the
+                     interfaces below.
+  Perch.Platform/    One IPlatform per OS, chosen at build time:
+    Windows/           WinRT Bluetooth, the Run registry key, Explorer
+    MacOS/             CoreBluetooth through perch-ble, a LaunchAgent, Finder
+  Perch.App/         The window, tray/menu bar icon and schedule editor, in Avalonia
+                     (MIT licensed, runs on both).
+  Perch.Cli/         perch-cli.
+native/macos/perch-ble/
+                     A small Swift program wrapping CoreBluetooth, spoken to over JSON
+                     lines on stdin/stdout. .NET has no CoreBluetooth binding of its own.
+tests/Perch.Tests/   Schedule, scheduler, protocol and the full move loop, the last
+                     against a simulated desk. Runs on either OS.
+```
+
+The seams are `IBluetooth` / `IGattConnection` / `IGattCharacteristic` (find a desk,
+connect, read, write and subscribe to a characteristic), `IAutoStart`, and `IPlatform`,
+which gathers them. The app and the CLI target both `net9.0-windows10.0.19041.0` and
+`net9.0`; the first gets the Windows implementation, the second the macOS one.
+
+**No desk handy?** `PERCH_SIMULATOR=1` swaps in a simulated desk that speaks the real
+protocol, for both the app and the CLI. It keeps its own settings folder and pipe, so it
+never touches a real Perch that is running.
+
 ## Build
 
-```
-dotnet build Perch.csproj -c Release
-dotnet build cli/PerchCli.csproj -c Release
-dotnet run --project tests/ScheduleTests/ScheduleTests.csproj -c Release
-dotnet publish Perch.csproj -c Release -r win-x64 --self-contained true ^
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist
+Needs the [.NET 9 SDK](https://dotnet.microsoft.com/download). On a Mac, also the Xcode
+command line tools (`xcode-select --install`): the normal build compiles `perch-ble` too.
+
+```bash
+dotnet build Perch.sln -c Release
+dotnet run --project tests/Perch.Tests -c Release
 ```
 
-`tests/ScheduleTests` is a plain console app that asserts the schedule state machine and
-exits with the number of failures, so CI needs no test framework.
+Run the app or the CLI on the machine you are on:
+
+```bash
+dotnet run --project src/Perch.App -f net9.0-windows10.0.19041.0    # Windows
+dotnet run --project src/Perch.App -f net9.0                        # macOS
+dotnet run --project src/Perch.Cli -f net9.0 -- status              # the CLI, on macOS
+```
+
+Package a release locally, into `dist/`:
+
+```bash
+pwsh packaging/windows/build.ps1 -Version 1.2.3        # installer + portable exes
+packaging/macos/build.sh 1.2.3 osx-arm64               # .dmg + CLI tarball (or osx-x64)
+```
+
+`tests/Perch.Tests` is a plain console app that exits with the number of failed checks,
+so CI needs no test framework.
 
 ## Releasing
 
-`.github/workflows/ci.yml` builds both projects with warnings as errors and runs the
-tests on every push and pull request.
+`.github/workflows/ci.yml` builds the whole solution with warnings as errors, runs the
+tests and packages the app on **both** a Windows and a macOS runner, for every push and
+pull request. A broken installer script or app bundle shows up there rather than halfway
+through a release.
 
-`.github/workflows/release.yml` fires on a version tag. It re-runs the tests, publishes a
-self-contained single-file exe of the app and of the CLI, builds the Inno Setup installer
-(which carries both, sharing one copy of the runtime), writes a SHA-256 sidecar for each,
-and attaches everything to a generated GitHub release:
+`.github/workflows/release.yml` fires on a version tag:
 
-```
+```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The tag must look like `v1.2.3` or the workflow stops before building. CI builds the
-installer on every push too, so a broken `packaging/perch.iss` shows up before a release
-rather than during one.
+It re-runs the tests, then builds in parallel:
 
-The app icon in `assets/perch.ico` is generated from the same code that draws the tray
-icon at runtime. After changing `AppIcon.Draw`, regenerate it with:
+| Runner  | Artifacts |
+|---------|-----------|
+| Windows | `Perch-<v>-setup.exe`, `Perch-<v>-win-x64.exe`, `perch-cli-<v>-win-x64.exe` |
+| macOS   | `Perch-<v>-macos-arm64.dmg`, `Perch-<v>-macos-x64.dmg`, `perch-cli-<v>-macos-{arm64,x64}.tar.gz` |
 
-```
+and publishes them all, each with a SHA-256 sidecar, as one generated GitHub release. The
+tag must look like `v1.2.3` or the workflow stops before building.
+
+**Signing on macOS.** Without secrets, the macOS builds are ad hoc signed: they run, but
+macOS shows the first-launch prompt described under the macOS install. To sign with a
+Developer ID and notarise instead, add these repository secrets:
+
+| Secret | Value |
+|--------|-------|
+| `MACOS_CERTIFICATE` | base64 of a *Developer ID Application* certificate exported as .p12 |
+| `MACOS_CERTIFICATE_PASSWORD` | the .p12's password |
+| `MACOS_SIGN_IDENTITY` | e.g. `Developer ID Application: Eagle Spirit (TEAMID)` |
+| `MACOS_NOTARY_APPLE_ID` | the Apple ID that notarises |
+| `MACOS_NOTARY_PASSWORD` | an app-specific password for it |
+| `MACOS_NOTARY_TEAM_ID` | the team id |
+
+The app icons, `assets/perch.ico` and `assets/perch.icns`, are generated from the same
+geometry the app draws its icon with at runtime. After changing `AppIconShape`,
+regenerate them with:
+
+```bash
 dotnet run --project tools/IconGen
 ```

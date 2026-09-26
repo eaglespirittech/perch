@@ -1,0 +1,164 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:Perch.App.Controls"
+        xmlns:vm="using:Perch.App.ViewModels"
+        x:Class="Perch.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Perch"
+        Width="440"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen">
+
+  <StackPanel Margin="20,18,20,14">
+
+    <!-- Header: icon, name, connection pill, and the overflow menu. -->
+    <Grid ColumnDefinitions="Auto,*,Auto">
+      <Image x:Name="HeaderIcon" Width="36" Height="36" VerticalAlignment="Top" Margin="0,4,10,0" />
+      <StackPanel Grid.Column="1" Spacing="4">
+        <TextBlock Classes="title" Text="Perch" />
+        <Border x:Name="Pill" Classes="pill">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Ellipse x:Name="PillDot" Width="8" Height="8" VerticalAlignment="Center" />
+            <TextBlock Classes="caption" Text="{Binding ConnectionText}"
+                       Foreground="{DynamicResource Perch.Text}" VerticalAlignment="Center" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+      <Button x:Name="MenuButton" Grid.Column="2" Classes="subtle round" Width="36" Height="36" Padding="0"
+              VerticalAlignment="Top" Margin="0,4,0,0" ToolTip.Tip="Menu" IsEnabled="{Binding !IsBusy}"
+              AutomationProperties.Name="Menu" Click="OnMenu">
+        <c:Glyph Kind="more" />
+      </Button>
+    </Grid>
+
+    <!-- The height readout. -->
+    <Border Classes="card" Margin="0,16,0,0" Height="168" ClipToBounds="True">
+      <c:HeightGauge Value="{Binding Height}" Target="{Binding MoveTarget}" Note="{Binding Note}" />
+    </Border>
+
+    <!-- Move to. -->
+    <TextBlock Classes="heading" Text="Move to" />
+    <Border Classes="card" Padding="14">
+      <Grid ColumnDefinitions="184,10,*,8,*">
+        <Border Background="{DynamicResource Perch.Field}" CornerRadius="22" Height="44">
+          <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="6,0">
+            <Button Classes="subtle round" Width="32" Height="32" Padding="0" Command="{Binding LessCommand}"
+                    AutomationProperties.Name="Lower the target" ToolTip.Tip="Lower by 0.5 cm">
+              <c:Glyph Kind="minus" />
+            </Button>
+            <TextBox x:Name="TargetBox" Grid.Column="1" Classes="bare" Text="{Binding TargetText}"
+                     FontSize="17" FontWeight="SemiBold" TextAlignment="Right" MinHeight="0"
+                     VerticalAlignment="Center" AutomationProperties.Name="Target height in centimetres" />
+            <TextBlock Grid.Column="2" Classes="caption" Text="cm" VerticalAlignment="Center" Margin="4,3,6,0" />
+            <Button Grid.Column="3" Classes="subtle round" Width="32" Height="32" Padding="0"
+                    Command="{Binding MoreCommand}" AutomationProperties.Name="Raise the target"
+                    ToolTip.Tip="Raise by 0.5 cm">
+              <c:Glyph Kind="plus" />
+            </Button>
+          </Grid>
+        </Border>
+
+        <Button x:Name="GoButton" Grid.Column="2" Classes="primary round" Height="44" HorizontalAlignment="Stretch"
+                Command="{Binding GoCommand}" IsDefault="True">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <c:Glyph Kind="forward" />
+            <TextBlock Text="Go" />
+          </StackPanel>
+        </Button>
+
+        <Button x:Name="StopButton" Grid.Column="4" Classes="round" Height="44" HorizontalAlignment="Stretch"
+                Command="{Binding StopCommand}" Classes.danger="{Binding IsBusy}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <c:Glyph Kind="stop" />
+            <TextBlock Text="Stop" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- Presets. -->
+    <TextBlock Classes="heading" Text="Presets" />
+    <Grid ColumnDefinitions="*,10,*">
+      <Border Classes="card" Padding="4">
+        <StackPanel>
+          <Button Classes="subtle tile" Command="{Binding PresetCommand}" CommandParameter="1"
+                  AutomationProperties.Name="Move to preset 1">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <Border Classes="number"><TextBlock Text="1" /></Border>
+              <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                <TextBlock Classes="caption" Text="Preset 1" />
+                <TextBlock Classes="value" Text="{Binding Preset1Text}" />
+              </StackPanel>
+              <c:Glyph Grid.Column="2" Kind="chevron" Width="14" Height="14" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Perch.TextSecondary}" />
+            </Grid>
+          </Button>
+          <Border Classes="rule" Margin="10,3" />
+          <Button Classes="subtle quiet" HorizontalAlignment="Stretch" Height="28" Padding="0"
+                  Command="{Binding SavePresetCommand}" CommandParameter="1">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <c:Glyph Kind="save" Width="13" Height="13" />
+              <TextBlock Text="Save current height" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Column="2" Classes="card" Padding="4">
+        <StackPanel>
+          <Button Classes="subtle tile" Command="{Binding PresetCommand}" CommandParameter="2"
+                  AutomationProperties.Name="Move to preset 2">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <Border Classes="number"><TextBlock Text="2" /></Border>
+              <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                <TextBlock Classes="caption" Text="Preset 2" />
+                <TextBlock Classes="value" Text="{Binding Preset2Text}" />
+              </StackPanel>
+              <c:Glyph Grid.Column="2" Kind="chevron" Width="14" Height="14" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Perch.TextSecondary}" />
+            </Grid>
+          </Button>
+          <Border Classes="rule" Margin="10,3" />
+          <Button Classes="subtle quiet" HorizontalAlignment="Stretch" Height="28" Padding="0"
+                  Command="{Binding SavePresetCommand}" CommandParameter="2">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <c:Glyph Kind="save" Width="13" Height="13" />
+              <TextBlock Text="Save current height" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <!-- Schedule. -->
+    <TextBlock Classes="heading" Text="Schedule" />
+    <Border Classes="card" Padding="14">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+        <Border Classes="badge">
+          <c:Glyph Kind="clock" Width="20" Height="20" Foreground="{DynamicResource Perch.Accent}" />
+        </Border>
+        <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
+          <TextBlock Classes="strong" Text="Stand every hour" />
+          <TextBlock Classes="caption" Text="{Binding NextMoveText}" />
+        </StackPanel>
+        <Button Grid.Column="2" Classes="subtle" Height="36" Padding="10,0" Margin="0,0,8,0"
+                AutomationProperties.Name="Edit schedule" Click="OnEditSchedule">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <c:Glyph Kind="edit" Width="14" Height="14" />
+            <TextBlock Text="Edit" />
+          </StackPanel>
+        </Button>
+        <ToggleSwitch Grid.Column="3" IsChecked="{Binding ScheduleEnabled}" OnContent="" OffContent=""
+                      MinWidth="0" AutomationProperties.Name="Run the schedule" />
+      </Grid>
+    </Border>
+
+    <!-- Status line. -->
+    <Grid ColumnDefinitions="Auto,*" Margin="2,12,0,0" MinHeight="34">
+      <c:Glyph Kind="info" Width="14" Height="14" VerticalAlignment="Top" Margin="0,1,8,0"
+               Foreground="{DynamicResource Perch.TextSecondary}" />
+      <TextBlock Grid.Column="1" Classes="caption" Text="{Binding Status}" TextWrapping="Wrap" MaxLines="2" />
+    </Grid>
+  </StackPanel>
+</Window>

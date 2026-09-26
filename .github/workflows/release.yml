@@ -1,7 +1,15 @@
 name: Release
 
-# Tag a commit v1.2.3 and push the tag; this builds the installer (app + CLI) and the
-# two portable exes, and publishes them as GitHub release assets.
+# Tag a commit v1.2.3 and push the tag. This builds, for Windows, the installer and the
+# two portable exes, and for macOS (Apple silicon and Intel) a disk image of Perch.app and
+# a perch-cli tarball, then publishes them all, with SHA-256 sidecars, as one GitHub release.
+#
+# macOS builds are ad hoc signed unless the signing secrets below exist, in which case
+# they are signed with a Developer ID and notarised:
+#   MACOS_CERTIFICATE           base64 of a Developer ID Application .p12
+#   MACOS_CERTIFICATE_PASSWORD  its password
+#   MACOS_SIGN_IDENTITY         "Developer ID Application: Name (TEAMID)"
+#   MACOS_NOTARY_APPLE_ID, MACOS_NOTARY_PASSWORD, MACOS_NOTARY_TEAM_ID
 on:
   push:
     tags:
@@ -11,9 +19,24 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: windows-latest
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Read version from the tag
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error::Tag '$GITHUB_REF_NAME' is not a version tag like v1.2.3."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
+  windows:
+    needs: version
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
 
@@ -21,71 +44,91 @@ jobs:
         with:
           dotnet-version: "9.0.x"
 
-      - name: Read version from the tag
-        id: version
+      - name: Test
+        run: dotnet run --project tests/Perch.Tests -c Release
+
+      - name: Package
         shell: pwsh
-        run: |
-          $version = "${{ github.ref_name }}" -replace '^v', ''
-          if ($version -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
-            throw "Tag '${{ github.ref_name }}' is not a version tag like v1.2.3."
-          }
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        run: ./packaging/windows/build.ps1 -Version ${{ needs.version.outputs.version }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-windows
+          path: dist/*.exe
+
+  macos:
+    needs: version
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        rid: [osx-arm64, osx-x64]
+    env:
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "9.0.x"
 
       - name: Test
-        run: dotnet run --project tests/ScheduleTests/ScheduleTests.csproj -c Release
+        run: dotnet run --project tests/Perch.Tests -c Release
 
-      - name: Publish the portable single-file builds
-        shell: pwsh
+      - name: Import the signing certificate
+        if: env.MACOS_CERTIFICATE != ''
+        env:
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
         run: |
-          $common = @(
-            '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true',
-            '-p:PublishSingleFile=true', '-p:IncludeNativeLibrariesForSelfExtract=true',
-            '-p:EnableCompressionInSingleFile=true',
-            "-p:Version=${{ steps.version.outputs.version }}"
-          )
-          dotnet publish Perch.csproj @common -o dist
-          dotnet publish cli/PerchCli.csproj @common -o dist
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(uuidgen)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$MACOS_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
 
-      - name: Publish the installer payload
-        shell: pwsh
+      - name: Package
+        env:
+          MACOS_SIGN_IDENTITY: ${{ env.MACOS_CERTIFICATE != '' && secrets.MACOS_SIGN_IDENTITY || '' }}
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+        run: packaging/macos/build.sh "${{ needs.version.outputs.version }}" "${{ matrix.rid }}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.rid }}
+          path: |
+            dist/*.dmg
+            dist/*.tar.gz
+
+  publish:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksum
+        working-directory: dist
         run: |
-          # Not single-file here: both programs share one copy of the runtime, which
-          # roughly halves what the installer has to carry.
-          $common = @(
-            '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true',
-            '-p:PublishSingleFile=false',
-            "-p:Version=${{ steps.version.outputs.version }}"
-          )
-          dotnet publish Perch.csproj @common -o dist/app
-          dotnet publish cli/PerchCli.csproj @common -o dist/app
-
-      - name: Build the installer
-        shell: pwsh
-        run: |
-          . ./packaging/find-iscc.ps1
-          & (Find-Iscc) /DAppVersion=${{ steps.version.outputs.version }} packaging/perch.iss
-
-      - name: Name the artifacts and checksum them
-        shell: pwsh
-        run: |
-          $v = "${{ steps.version.outputs.version }}"
-          Move-Item dist/Perch.exe "dist/Perch-$v-win-x64.exe"
-          Move-Item dist/perch-cli.exe "dist/perch-cli-$v-win-x64.exe"
-          Remove-Item dist/*.pdb -ErrorAction SilentlyContinue
-
-          Get-ChildItem dist/*.exe | ForEach-Object {
-            (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower() + "  " + $_.Name |
-              Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii
-          }
-
-          Get-ChildItem dist -File | Format-Table Name, Length
+          for file in *; do
+            sha256sum "$file" > "$file.sha256"
+          done
+          ls -l
 
       - name: Create the release
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" `
-            (Get-ChildItem dist/*.exe, dist/*.sha256 | ForEach-Object { $_.FullName }) `
-            --title "${{ github.ref_name }}" `
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
             --generate-notes
