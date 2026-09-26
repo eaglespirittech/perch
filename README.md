@@ -33,11 +33,13 @@ it appears here only to say which desk this controls.
 The window follows the Windows light/dark setting and your accent colour. Set
 `PERCH_THEME=dark` or `PERCH_THEME=light` to override it.
 
-- **Height** - the big readout is where the desk is now; the bar under it shows where that
-  sits in the desk's 62-127 cm travel.
+- **Height** - the big readout is where the desk is now, next to a small drawing of the desk
+  that rises and falls with it; the bar under it shows where that sits in the desk's
+  62-127 cm travel.
 - **Move to** - type a height, or step it with the minus and plus buttons, then press Go
   (Enter works too). **Stop** halts a move in progress.
-- **Presets** - two slots; "Save current" captures the height the desk is at now.
+- **Presets** - two slots; press one to move there. "Save current height" captures the
+  height the desk is at now.
 - **Menu** (the dots, top right) — pick which paired desk to use, connect or disconnect,
   nudge the desk a centimetre either way, toggle **Start with Windows**, or open the
   settings folder.

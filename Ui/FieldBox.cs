@@ -12,11 +12,11 @@ public class FieldBox : Card
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public TextBox Input { get; }
 
-    public FieldBox(int width, int height = 30)
+    public FieldBox(int width, int height = 32)
     {
         Fill = Theme.Field;
         Radius = Theme.ControlRadius;
-        Size = new Size(width, height);
+        Size = new Size((int)this.Dp(width), (int)this.Dp(height));
 
         Input = new TextBox
         {
@@ -30,9 +30,27 @@ public class FieldBox : Card
         Controls.Add(Input);
         Centre();
         Input.SizeChanged += (_, _) => Centre();
+        TrackFocus(this, Input);
     }
 
-    void Centre() => Input.Bounds = new Rectangle(6, Math.Max((Height - Input.Height) / 2, 2), Width - 12, Input.Height);
+    /// <summary>Gives a well an accent outline while the text box inside it has focus.</summary>
+    public static void TrackFocus(Card well, TextBox input)
+    {
+        input.Enter += (_, _) => { well.Stroke = Theme.Accent; well.Invalidate(); };
+        input.Leave += (_, _) => { well.Stroke = null; well.Invalidate(); };
+    }
+
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        base.OnSizeChanged(e);
+        if (Input is not null) Centre();
+    }
+
+    void Centre()
+    {
+        var inset = (int)this.Dp(6);
+        Input.Bounds = new Rectangle(inset, Math.Max((Height - Input.Height) / 2, 2), Width - inset * 2, Input.Height);
+    }
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     [System.Diagnostics.CodeAnalysis.AllowNull]
@@ -46,7 +64,7 @@ public class FieldBox : Card
     {
         Input.Enabled = enabled;
         Input.ForeColor = enabled ? Theme.Text : Theme.TextDisabled;
-        Input.BackColor = Fill ?? Theme.Field;
+        Input.BackColor = SurfaceColor;
         Invalidate();
     }
 

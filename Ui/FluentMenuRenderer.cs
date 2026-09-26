@@ -8,7 +8,7 @@ namespace Perch.Ui;
 /// </summary>
 public sealed class FluentMenuRenderer : ToolStripProfessionalRenderer
 {
-    public FluentMenuRenderer() : base(new Colors()) { }
+    public FluentMenuRenderer() : base(new Colors()) { RoundedEdges = false; }
 
     sealed class Colors : ProfessionalColorTable
     {
@@ -38,10 +38,16 @@ public sealed class FluentMenuRenderer : ToolStripProfessionalRenderer
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        var bounds = new RectangleF(3, 1, item.Width - 6, item.Height - 2);
-        using var path = Theme.RoundedRect(bounds, 4);
+        var bounds = new RectangleF(2, 1, item.Width - 4, item.Height - 2);
+        using var path = Theme.RoundedRect(bounds, 5);
         using var brush = new SolidBrush(Theme.FieldHover);
         g.FillPath(brush, path);
+
+        // The Windows 11 selection pill: a short accent bar on the leading edge.
+        var bar = new RectangleF(bounds.Left + 1, bounds.Top + bounds.Height * 0.3f, 3, bounds.Height * 0.4f);
+        using var barPath = Theme.RoundedRect(bar, 1.5f);
+        using var accent = new SolidBrush(Theme.Accent);
+        g.FillPath(accent, barPath);
     }
 
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
@@ -51,13 +57,19 @@ public sealed class FluentMenuRenderer : ToolStripProfessionalRenderer
         base.OnRenderItemText(e);
     }
 
+    protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e)
+    {
+        e.ArrowColor = Theme.TextSecondary;
+        base.OnRenderArrow(e);
+    }
+
     protected override void OnRenderItemCheck(ToolStripItemImageRenderEventArgs e)
     {
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
         var box = e.ImageRectangle;
-        using var pen = new Pen(Theme.Accent, 2f);
+        using var pen = new Pen(Theme.Accent, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
         g.DrawLines(pen, new[]
         {
             new PointF(box.Left + 3, box.Top + box.Height / 2f),

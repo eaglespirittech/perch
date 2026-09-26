@@ -15,6 +15,7 @@
   <ItemGroup>
     <Compile Include="..\..\Ui\AppIcon.cs" Link="AppIcon.cs" />
     <Compile Include="..\..\Ui\Theme.cs" Link="Theme.cs" />
+    <Compile Include="..\..\Ui\Card.cs" Link="Card.cs" />
   </ItemGroup>
 
 </Project>

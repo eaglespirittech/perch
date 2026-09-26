@@ -30,26 +30,31 @@ public sealed class ScheduleForm : Form
 
     public WeekSchedule Schedule { get; private set; }
 
-    // Column geometry, all relative to the grid card.
-    const int ColDay = 16;
-    const int ColFrom = 152;
-    const int ColUntil = 220;
-    const int ColStandAt = 288;
-    const int ColStandFor = 354;
-    const int ColStandCm = 420;
-    const int ColSitCm = 490;
-    const int ColCopy = 560;
-    const int GridWidth = 636;
-    const int HeaderY = 14;
+    // Column geometry, all relative to the grid card, in 96-DPI pixels.
+    const int ColDay = 18;
+    const int ColFrom = 160;
+    const int ColUntil = 228;
+    const int ColStandAt = 300;
+    const int ColStandFor = 368;
+    const int ColStandCm = 436;
+    const int ColSitCm = 506;
+    const int ColCopy = 578;
+    const int GridWidth = 664;
+    const int HeaderY = 16;
     const int FirstRowY = 44;
-    const int RowHeight = 40;
+    const int RowHeight = 44;
+
+    int D(float value) => (int)Math.Round(value * DeviceDpi / 96f);
+    Rectangle R(int x, int y, int width, int height) => new(D(x), D(y), D(width), D(height));
+    Point P(int x, int y) => new(D(x), D(y));
 
     public ScheduleForm(WeekSchedule schedule)
     {
         Schedule = schedule.Normalized();
 
         Text = "Schedule";
-        AutoScaleMode = AutoScaleMode.Dpi;
+        // Layout is scaled by hand (see D and R) so custom painting and positions agree.
+        AutoScaleMode = AutoScaleMode.None;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;
@@ -63,26 +68,29 @@ public sealed class ScheduleForm : Form
 
     void BuildLayout()
     {
-        var title = Caption("Schedule", Theme.Title, Theme.Text, new Point(20, 18));
+        var title = Caption("Schedule", Theme.Title, Theme.Text, P(22, 18));
         var hint = Caption(
             "Inside each active window the desk goes up at that minute past every hour, stays up for " +
             "the given number of minutes, then returns to the other height.",
-            Theme.Caption, Theme.TextSecondary, new Point(20, 50));
+            Theme.Caption, Theme.TextSecondary, P(22, 50));
         hint.AutoSize = false;
-        hint.Size = new Size(GridWidth, 42);
+        hint.Size = new Size(D(GridWidth - 4), D(40));
 
-        _grid.Bounds = new Rectangle(20, 98, GridWidth, FirstRowY + 7 * RowHeight + 8);
+        const int gridY = 98;
+        const int gridHeight = FirstRowY + 7 * RowHeight + 6;
+        _grid.Elevated = true;
+        _grid.Bounds = R(20, gridY, GridWidth, gridHeight);
         BuildHeader();
         for (var row = 0; row < DisplayOrder.Length; row++)
             BuildRow(row, DisplayOrder[row]);
 
-        var buttonsY = _grid.Bottom + 16;
+        var buttonsY = gridY + gridHeight + 18;
 
         var save = new PerchButton
         {
             Text = "Save",
             Kind = ButtonKind.Primary,
-            Bounds = new Rectangle(20 + GridWidth - 200, buttonsY, 96, 36)
+            Bounds = R(20 + GridWidth - 216, buttonsY, 104, 36)
         };
         save.Click += OnSave;
 
@@ -90,14 +98,14 @@ public sealed class ScheduleForm : Form
         {
             Text = "Cancel",
             DialogResult = DialogResult.Cancel,
-            Bounds = new Rectangle(20 + GridWidth - 96, buttonsY, 96, 36)
+            Bounds = R(20 + GridWidth - 104, buttonsY, 104, 36)
         };
 
-        Caption(_error, string.Empty, Theme.Caption, Theme.Text, new Point(20, buttonsY + 10));
+        Caption(_error, string.Empty, Theme.Caption, Theme.Danger, P(22, buttonsY + 10));
 
         Controls.AddRange(new Control[] { title, hint, _grid, save, cancel, _error });
 
-        ClientSize = new Size(GridWidth + 40, buttonsY + 36 + 18);
+        ClientSize = new Size(D(GridWidth + 40), D(buttonsY + 36 + 20));
         AcceptButton = save;
         CancelButton = cancel;
     }
@@ -106,8 +114,7 @@ public sealed class ScheduleForm : Form
     {
         void Header(string text, int x)
         {
-            var label = Caption(text, Theme.Caption, Theme.TextSecondary, new Point(x, HeaderY));
-            label.BackColor = Theme.Surface;
+            var label = Caption(text, Theme.CaptionStrong, Theme.TextSecondary, P(x, HeaderY));
             _grid.Controls.Add(label);
         }
 
@@ -125,18 +132,20 @@ public sealed class ScheduleForm : Form
         var i = (int)day;
         var y = FirstRowY + row * RowHeight;
 
-        _enabled[i] = new ToggleSwitch { Bounds = new Rectangle(ColDay, y + 5, 40, 20) };
+        // A hairline between rows.
+        var rule = new Label { AutoSize = false, BackColor = Theme.Border, Bounds = new Rectangle(D(14), D(y - 6), D(GridWidth - 28), 1) };
+
+        _enabled[i] = new ToggleSwitch { AccessibleName = $"{day} on", Bounds = R(ColDay, y + 6, 40, 20) };
         _enabled[i].CheckedChanged += (_, _) => UpdateRowEnabled(day);
 
-        _dayName[i] = Caption(day.ToString(), Theme.Body, Theme.Text, new Point(ColDay + 50, y + 7));
-        _dayName[i].BackColor = Theme.Surface;
+        _dayName[i] = Caption(day.ToString(), Theme.Body, Theme.Text, P(ColDay + 52, y + 7));
 
-        _from[i] = new FieldBox(58) { Location = new Point(ColFrom, y) };
-        _to[i] = new FieldBox(58) { Location = new Point(ColUntil, y) };
-        _standAt[i] = new FieldBox(56) { Location = new Point(ColStandAt, y) };
-        _standFor[i] = new FieldBox(56) { Location = new Point(ColStandFor, y) };
-        _standCm[i] = new FieldBox(60) { Location = new Point(ColStandCm, y) };
-        _sitCm[i] = new FieldBox(60) { Location = new Point(ColSitCm, y) };
+        _from[i] = new FieldBox(60) { Location = P(ColFrom, y) };
+        _to[i] = new FieldBox(60) { Location = P(ColUntil, y) };
+        _standAt[i] = new FieldBox(58) { Location = P(ColStandAt, y) };
+        _standFor[i] = new FieldBox(58) { Location = P(ColStandFor, y) };
+        _standCm[i] = new FieldBox(62) { Location = P(ColStandCm, y) };
+        _sitCm[i] = new FieldBox(62) { Location = P(ColSitCm, y) };
 
         _from[i].Input.Leave += (_, _) => NormaliseTime(_from[i]);
         _to[i].Input.Leave += (_, _) => NormaliseTime(_to[i]);
@@ -148,11 +157,16 @@ public sealed class ScheduleForm : Form
         _copy[i] = new PerchButton
         {
             Text = "Copy",
+            Glyph = "\uE8C8",
             Kind = ButtonKind.Subtle,
-            Bounds = new Rectangle(ColCopy, y + 2, 60, 30)
+            TextFont = Theme.Caption,
+            TextColor = Theme.TextSecondary,
+            AccessibleName = $"Copy {day} to other days",
+            Bounds = R(ColCopy, y + 1, 70, 30)
         };
         _copy[i].Click += (_, _) => ShowCopyMenu(day, _copy[i]);
 
+        if (row > 0) _grid.Controls.Add(rule);
         _grid.Controls.AddRange(new Control[]
         {
             _enabled[i], _dayName[i], _from[i], _to[i], _standAt[i], _standFor[i], _standCm[i], _sitCm[i], _copy[i]
@@ -182,18 +196,17 @@ public sealed class ScheduleForm : Form
         Theme.ApplyWindowTrim(this);
     }
 
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        Theme.PaintShadows(e.Graphics, this);
+    }
+
     // ---- copy --------------------------------------------------------------
 
     void ShowCopyMenu(DayOfWeek source, Control anchor)
     {
-        var menu = new ContextMenuStrip
-        {
-            RenderMode = ToolStripRenderMode.ManagerRenderMode,
-            BackColor = Theme.Surface,
-            ForeColor = Theme.Text,
-            Font = Theme.Body,
-            ShowImageMargin = false
-        };
+        var menu = new ContextMenuStrip { ShowImageMargin = false };
 
         void Add(string text, params DayOfWeek[] targets) =>
             menu.Items.Add(text, null, (_, _) => CopyTo(source, targets));
@@ -206,6 +219,7 @@ public sealed class ScheduleForm : Form
         foreach (var day in DisplayOrder.Where(d => d != source))
             Add($"Copy to {day}", day);
 
+        Theme.StyleMenu(menu);
         menu.Show(anchor, new Point(anchor.Width, anchor.Height), ToolStripDropDownDirection.BelowLeft);
     }
 
@@ -266,7 +280,6 @@ public sealed class ScheduleForm : Form
             if (value.Enabled && value.ToMinute <= value.FromMinute)
             {
                 _error.Text = $"{day}: the active window has to end after it starts.";
-                _error.ForeColor = Theme.Accent;
                 _to[(int)day].Input.Focus();
                 return;
             }
