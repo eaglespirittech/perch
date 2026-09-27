@@ -1,0 +1,93 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:Perch.App.Controls"
+        xmlns:vm="using:Perch.App.ViewModels"
+        x:Class="Perch.App.Views.ScheduleWindow"
+        x:DataType="vm:ScheduleViewModel"
+        Title="Schedule"
+        Width="720"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+  <Window.Styles>
+    <Style Selector="TextBox.cell">
+      <Setter Property="Width" Value="60" />
+      <Setter Property="Height" Value="32" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="Padding" Value="4,0" />
+    </Style>
+    <Style Selector="TextBlock.column">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="{DynamicResource Perch.TextSecondary}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </Window.Styles>
+
+  <StackPanel Margin="22,18,22,20">
+    <TextBlock Classes="title" Text="Schedule" />
+    <TextBlock Classes="caption" TextWrapping="Wrap" Margin="0,6,0,16"
+               Text="Inside each active window the desk goes up at that minute past every hour, stays up for the given number of minutes, then returns to the other height." />
+
+    <Border Classes="card" Padding="16,10">
+      <StackPanel>
+        <!-- Column headings, on the same grid as the rows below. -->
+        <Grid ColumnDefinitions="148,72,72,72,72,74,74,*" Height="30">
+          <TextBlock Classes="column" Text="Day" />
+          <TextBlock Grid.Column="1" Classes="column" Text="From" />
+          <TextBlock Grid.Column="2" Classes="column" Text="Until" />
+          <TextBlock Grid.Column="3" Classes="column" Text="Stand at" />
+          <TextBlock Grid.Column="4" Classes="column" Text="For (min)" />
+          <TextBlock Grid.Column="5" Classes="column" Text="Stand cm" />
+          <TextBlock Grid.Column="6" Classes="column" Text="Return cm" />
+        </Grid>
+
+        <ItemsControl ItemsSource="{Binding Days}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:DayRow">
+              <StackPanel>
+                <Border Classes="rule" />
+                <Grid ColumnDefinitions="148,72,72,72,72,74,74,*" Height="44">
+                  <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <ToggleSwitch IsChecked="{Binding Enabled}" OnContent="" OffContent="" MinWidth="0"
+                                  AutomationProperties.Name="{Binding Name}" />
+                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                  </StackPanel>
+                  <TextBox Grid.Column="1" Classes="cell" Text="{Binding From}" IsEnabled="{Binding Enabled}"
+                           LostFocus="OnFieldLeft" />
+                  <TextBox Grid.Column="2" Classes="cell" Text="{Binding Until}" IsEnabled="{Binding Enabled}"
+                           LostFocus="OnFieldLeft" />
+                  <TextBox Grid.Column="3" Classes="cell" Text="{Binding StandAt}" IsEnabled="{Binding Enabled}"
+                           LostFocus="OnFieldLeft" />
+                  <TextBox Grid.Column="4" Classes="cell" Text="{Binding StandFor}" IsEnabled="{Binding Enabled}"
+                           LostFocus="OnFieldLeft" />
+                  <TextBox Grid.Column="5" Classes="cell" Text="{Binding StandCm}" IsEnabled="{Binding Enabled}"
+                           LostFocus="OnFieldLeft" />
+                  <TextBox Grid.Column="6" Classes="cell" Text="{Binding SitCm}" IsEnabled="{Binding Enabled}"
+                           LostFocus="OnFieldLeft" />
+                  <Button Grid.Column="7" Classes="subtle quiet" Height="30" Padding="8,0"
+                          HorizontalAlignment="Right" Click="OnCopy">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <c:Glyph Kind="copy" Width="13" Height="13" />
+                      <TextBlock Text="Copy" />
+                    </StackPanel>
+                  </Button>
+                </Grid>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,18,0,0">
+      <TextBlock Classes="caption" Text="{Binding Error}" Foreground="{DynamicResource Perch.Danger}"
+                 VerticalAlignment="Center" TextWrapping="Wrap" />
+      <Button Grid.Column="1" Classes="primary" Width="104" Height="36" Margin="0,0,8,0" IsDefault="True"
+              Click="OnSave" Content="Save" />
+      <Button Grid.Column="2" Width="104" Height="36" IsCancel="True" Click="OnCancel" Content="Cancel" />
+    </Grid>
+  </StackPanel>
+</Window>

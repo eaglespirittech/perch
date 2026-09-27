@@ -1,5 +1,7 @@
 name: CI
 
+# Builds everything, runs the tests and packages both platforms on every push and pull
+# request, so a broken installer or app bundle shows up here rather than mid-release.
 on:
   push:
     branches: [main]
@@ -7,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  windows:
     runs-on: windows-latest
 
     steps:
@@ -17,25 +19,64 @@ jobs:
         with:
           dotnet-version: "9.0.x"
 
+      # Builds both target frameworks of every project, so the macOS code compiles here too.
       - name: Build
-        run: dotnet build Perch.csproj -c Release -warnaserror
+        run: dotnet build Perch.sln -c Release -warnaserror
 
-      - name: Build the CLI
-        run: dotnet build cli/PerchCli.csproj -c Release -warnaserror
+      - name: Test
+        run: dotnet run --project tests/Perch.Tests -c Release --no-build
 
-      - name: Test the schedule logic
-        run: dotnet run --project tests/ScheduleTests/ScheduleTests.csproj -c Release
-
-      # Catches a broken installer script here rather than halfway through a release.
-      - name: Build the installer
+      - name: Package (installer only)
         shell: pwsh
+        run: ./packaging/windows/build.ps1 -Version 0.0.0 -SkipPortable
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows
+          path: dist/*.exe
+          retention-days: 7
+
+  macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "9.0.x"
+
+      # Also compiles perch-ble, the Swift CoreBluetooth helper, and the Windows target.
+      - name: Build
+        run: dotnet build Perch.sln -c Release -warnaserror
+
+      - name: Test
+        run: dotnet run --project tests/Perch.Tests -c Release --no-build
+
+      - name: Package (Apple silicon, ad hoc signed)
+        run: packaging/macos/build.sh 0.0.0 osx-arm64
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos
+          path: |
+            dist/*.dmg
+            dist/*.tar.gz
+          retention-days: 7
+
+  # The one check the "Protect main" ruleset requires, standing for every platform above.
+  # It always runs and fails unless all of them succeeded: GitHub counts a skipped
+  # required check as passing, which would let a failed platform through.
+  build:
+    needs: [windows, macos]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: A platform did not build
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
         run: |
-          $common = @('-c', 'Release', '-r', 'win-x64', '--self-contained', 'true',
-                      '-p:PublishSingleFile=false', '-p:Version=0.0.0')
-          dotnet publish Perch.csproj @common -o dist/app
-          dotnet publish cli/PerchCli.csproj @common -o dist/app
+          echo "::error::Windows: ${{ needs.windows.result }}, macOS: ${{ needs.macos.result }}"
+          exit 1
 
-          . ./packaging/find-iscc.ps1
-          & (Find-Iscc) /DAppVersion=0.0.0 packaging/perch.iss
-
-          Get-ChildItem dist | Format-Table Name, Length
+      - name: Every platform built
+        run: echo "Windows and macOS both built, tested and packaged."

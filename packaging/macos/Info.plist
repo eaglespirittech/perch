@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Perch.app's Info.plist. build.sh fills in __VERSION__. -->
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Perch</string>
+    <key>CFBundleDisplayName</key>
+    <string>Perch</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.eaglespirit.perch</string>
+    <key>CFBundleExecutable</key>
+    <string>Perch</string>
+    <key>CFBundleIconFile</key>
+    <string>perch.icns</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>__VERSION__</string>
+    <key>CFBundleVersion</key>
+    <string>__VERSION__</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Not affiliated with or endorsed by Inter IKEA Systems B.V.</string>
+    <!-- Shown in the one-time Bluetooth permission prompt. Without it macOS kills the app. -->
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Perch uses Bluetooth to move your desk.</string>
+</dict>
+</plist>

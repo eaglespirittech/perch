@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    One implementation of Perch.Platform.IPlatform per operating system. The Windows
+    target compiles Windows/ (WinRT Bluetooth, the Run registry key); the portable target
+    compiles MacOS/ (the CoreBluetooth helper, a LaunchAgent). Projects that reference
+    this one get the matching half automatically through target framework matching, and
+    PlatformServices.Current hands back the right implementation.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>$(PerchWindowsTfm);$(PerchPortableTfm)</TargetFrameworks>
+    <RootNamespace>Perch.Platform</RootNamespace>
+    <AssemblyName>Perch.Platform</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == '$(PerchWindowsTfm)'">
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Perch.Core\Perch.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == '$(PerchWindowsTfm)'">
+    <Compile Remove="MacOS\**" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != '$(PerchWindowsTfm)'">
+    <Compile Remove="Windows\**" />
+  </ItemGroup>
+
+  <!--
+    On a Mac, build perch-ble (the Swift CoreBluetooth helper) along with everything else,
+    and ship it beside whatever references this project: the app, the CLI, and their
+    publish output. Needs the Xcode command line tools. PerchSkipNative=true opts out.
+  -->
+  <PropertyGroup>
+    <PerchBuildsHelper Condition="'$(TargetFramework)' == '$(PerchPortableTfm)' and $([MSBuild]::IsOSPlatform('OSX')) and '$(PerchSkipNative)' != 'true'">true</PerchBuildsHelper>
+    <PerchHelperSource>$(MSBuildThisFileDirectory)..\..\native\macos\perch-ble\</PerchHelperSource>
+    <PerchHelperOutput>$(IntermediateOutputPath)perch-ble</PerchHelperOutput>
+  </PropertyGroup>
+
+  <Target Name="BuildPerchBleHelper" BeforeTargets="AssignTargetPaths" Condition="'$(PerchBuildsHelper)' == 'true'"
+          Inputs="$(PerchHelperSource)main.swift;$(PerchHelperSource)Info.plist;$(PerchHelperSource)build.sh"
+          Outputs="$(PerchHelperOutput)">
+    <Exec Command="/bin/sh &quot;$(PerchHelperSource)build.sh&quot; &quot;$(PerchHelperOutput)&quot;" />
+  </Target>
+
+  <ItemGroup Condition="'$(PerchBuildsHelper)' == 'true'">
+    <None Include="$(PerchHelperOutput)" Link="perch-ble" Visible="false"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+  </ItemGroup>
+
+</Project>

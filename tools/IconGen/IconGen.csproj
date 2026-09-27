@@ -1,21 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Regenerates assets/perch.ico from the drawing code the app uses at runtime. -->
+  <!--
+    Regenerates assets/perch.ico (Windows) and assets/perch.icns (macOS) from the same
+    geometry the app draws its icon with at runtime. Runs on either OS.
+  -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
-    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
-    <UseWindowsForms>true</UseWindowsForms>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <TargetFramework>net9.0</TargetFramework>
     <AssemblyName>IconGen</AssemblyName>
     <RootNamespace>Perch.Tools</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\Ui\AppIcon.cs" Link="AppIcon.cs" />
-    <Compile Include="..\..\Ui\Theme.cs" Link="Theme.cs" />
-    <Compile Include="..\..\Ui\Card.cs" Link="Card.cs" />
+    <!-- The version Avalonia's own renderer uses. -->
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\Perch.App\Controls\AppIconShape.cs" Link="AppIconShape.cs" />
   </ItemGroup>
 
 </Project>

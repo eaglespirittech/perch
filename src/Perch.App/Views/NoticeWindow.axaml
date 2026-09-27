@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="using:Perch.App.Controls"
+        x:Class="Perch.App.Views.NoticeWindow"
+        Title="Perch"
+        Width="380"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen">
+  <StackPanel Margin="22,20" Spacing="10">
+    <StackPanel Orientation="Horizontal" Spacing="10">
+      <c:Glyph Kind="info" Width="20" Height="20" Foreground="{DynamicResource Perch.Accent}" />
+      <TextBlock x:Name="Heading" Classes="strong" FontSize="15" VerticalAlignment="Center" />
+    </StackPanel>
+    <SelectableTextBlock x:Name="Body" TextWrapping="Wrap" Foreground="{DynamicResource Perch.TextSecondary}" />
+    <Button Classes="primary" Content="OK" Width="90" Height="32" HorizontalAlignment="Right"
+            IsDefault="True" IsCancel="True" Click="OnOk" />
+  </StackPanel>
+</Window>

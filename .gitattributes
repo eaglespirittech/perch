@@ -1,0 +1,7 @@
+# Shell scripts run on macOS runners; a CRLF there breaks the shebang line.
+*.sh      text eol=lf
+*.swift   text eol=lf
+*.plist   text eol=lf
+
+*.ico     binary
+*.icns    binary

@@ -1,0 +1,29 @@
+<Project>
+
+  <!-- Settings every project in the repository shares. -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!--
+      The app and the CLI target net9.0-windows (WinRT Bluetooth) alongside plain net9.0
+      (macOS). This lets a Mac or Linux machine build the Windows target too, so a single
+      "dotnet build" anywhere compiles every platform's code.
+    -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+
+    <!-- Overridden by the release pipeline with -p:Version=1.2.3. -->
+    <Version>0.0.0</Version>
+    <Company>Eagle Spirit</Company>
+    <Product>Perch</Product>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- The two target frameworks every platform-facing project builds for. -->
+    <PerchWindowsTfm>net9.0-windows10.0.19041.0</PerchWindowsTfm>
+    <PerchPortableTfm>net9.0</PerchPortableTfm>
+  </PropertyGroup>
+
+</Project>

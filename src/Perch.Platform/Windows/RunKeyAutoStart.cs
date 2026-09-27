@@ -1,0 +1,92 @@
+using Microsoft.Win32;
+
+namespace Perch.Platform.Windows;
+
+/// <summary>
+/// Start-with-Windows, via the per-user Run key. No admin rights, no scheduled task, and
+/// the user can always see and revoke it in Task Manager's Startup tab.
+/// </summary>
+public sealed class RunKeyAutoStart : IAutoStart
+{
+    const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    const string ValueName = "Perch";
+
+    /// <summary>Sign-in should park it by the clock, not throw a window at you.</summary>
+    const string Arguments = " --minimized";
+
+    public string Label => "Start with Windows";
+
+    /// <summary>The exe as Windows should launch it. Null when running from a host such as dotnet.exe.</summary>
+    static string? ExePath
+    {
+        get
+        {
+            var path = Environment.ProcessPath;
+            return string.IsNullOrEmpty(path) ? null : path;
+        }
+    }
+
+    public bool IsEnabled
+    {
+        get
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(RunKey);
+                return key?.GetValue(ValueName) is string value && value.Length > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    public string? SetEnabled(bool enabled)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(RunKey, writable: true);
+            if (key is null) return "Could not open the Windows startup settings.";
+
+            if (!enabled)
+            {
+                key.DeleteValue(ValueName, throwOnMissingValue: false);
+                return null;
+            }
+
+            if (ExePath is not { } exe) return "Could not work out which file to start.";
+            key.SetValue(ValueName, Command(exe));
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
+    static string Command(string exe) => $"\"{exe}\"{Arguments}";
+
+    /// <summary>
+    /// Keeps the registered path pointing at wherever the exe lives now, so moving it
+    /// does not leave a dead startup entry behind.
+    /// </summary>
+    public void RefreshIfEnabled()
+    {
+        try
+        {
+            if (ExePath is not { } exe) return;
+
+            using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
+            if (key?.GetValue(ValueName) is not string current) return;
+
+            var wanted = Command(exe);
+            if (!string.Equals(current, wanted, StringComparison.OrdinalIgnoreCase))
+                key.SetValue(ValueName, wanted);
+        }
+        catch
+        {
+            // Startup registration is a convenience; never block launch over it.
+        }
+    }
+}
