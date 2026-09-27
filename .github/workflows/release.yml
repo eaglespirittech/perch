@@ -34,9 +34,16 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+  # Windows binaries are code signed through SignPath Foundation once SIGNPATH_API_TOKEN
+  # exists (see "Code signing policy" in the README); until then they ship unsigned.
+  # Signing happens twice: the programs, then the installer built from the signed programs.
+  # Each request waits for an approver to approve it in SignPath.
   windows:
     needs: version
     runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
     steps:
       - uses: actions/checkout@v7
 
@@ -47,9 +54,98 @@ jobs:
       - name: Test
         run: dotnet run --project tests/Perch.Tests -c Release
 
+      - name: Publish
+        shell: pwsh
+        run: ./packaging/windows/build.ps1 -Version $env:VERSION -Step publish
+
+      - name: Upload the programs for signing
+        id: unsigned-programs
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-programs
+          retention-days: 1
+          path: |
+            dist/app/Perch.exe
+            dist/app/perch-cli.exe
+            dist/app/Perch.dll
+            dist/app/perch-cli.dll
+            dist/app/Perch.Core.dll
+            dist/app/Perch.Platform.dll
+            dist/portable/Perch.exe
+            dist/portable/perch-cli.exe
+
+      - name: Sign the programs
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'perch' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: binaries
+          github-artifact-id: ${{ steps.unsigned-programs.outputs.artifact-id }}
+          parameters: |
+            version: "${{ env.VERSION }}"
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          # The artifact's paths are relative to dist, so this puts each file back in place.
+          output-artifact-directory: dist
+
       - name: Package
         shell: pwsh
-        run: ./packaging/windows/build.ps1 -Version ${{ needs.version.outputs.version }}
+        run: ./packaging/windows/build.ps1 -Version $env:VERSION -Step package
+
+      # Under a fixed name, so the SignPath artifact configuration need not know the version.
+      - name: Stage the installer for signing
+        if: env.SIGNPATH_API_TOKEN != ''
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/installer | Out-Null
+          Move-Item "dist/Perch-$env:VERSION-setup.exe" dist/installer/Perch-setup.exe
+
+      - name: Upload the installer for signing
+        id: unsigned-installer
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned-installer
+          retention-days: 1
+          path: dist/installer/Perch-setup.exe
+
+      - name: Sign the installer
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'perch' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+          parameters: |
+            version: "${{ env.VERSION }}"
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist/installer
+
+      - name: Put the signed installer back
+        if: env.SIGNPATH_API_TOKEN != ''
+        shell: pwsh
+        run: |
+          Move-Item dist/installer/Perch-setup.exe "dist/Perch-$env:VERSION-setup.exe"
+          Remove-Item -Recurse dist/installer
+
+      - name: Check the signatures
+        if: env.SIGNPATH_API_TOKEN != ''
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem dist/*.exe
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature $file.FullName
+            "{0,-40} {1}" -f $file.Name, $signature.Status
+            if ($signature.Status -ne 'Valid') { throw "$($file.Name) is not validly signed." }
+          }
 
       - uses: actions/upload-artifact@v7
         with:

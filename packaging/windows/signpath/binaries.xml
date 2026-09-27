@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration "binaries": the programs, before the installer is built.
+  Paste into SignPath (Project "perch" > Artifact configurations) under the slug "binaries".
+
+  The artifact is dist\app (the installer payload) and dist\portable (the single-file
+  exes), as uploaded by .github/workflows/release.yml. Only Perch's own files are signed;
+  the .NET runtime and Avalonia ship as their authors built them.
+
+  Every file must say it is Perch, at the version being released.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" />
+  </parameters>
+  <zip-file>
+    <pe-file path="app/Perch.exe" product-name="Perch" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="app/perch-cli.exe" product-name="Perch" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="app/Perch.dll" product-name="Perch" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="app/perch-cli.dll" product-name="Perch" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="app/Perch.Core.dll" product-name="Perch" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="app/Perch.Platform.dll" product-name="Perch" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="portable/Perch.exe" product-name="Perch" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="portable/perch-cli.exe" product-name="Perch" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

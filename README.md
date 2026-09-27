@@ -103,6 +103,19 @@ into the menu bar. It needs no admin rights and appears under **System Settings 
 General → Login Items**, where it can be switched off. Moving Perch.app is handled the
 same way as on Windows.
 
+## Uninstalling
+
+**Windows.** Uninstall Perch from **Settings → Apps → Installed apps**. That also removes
+the **Start with Windows** entry and, if you chose it, `perch-cli` from PATH. Your
+settings stay in `%APPDATA%\Perch`; delete that folder too if you want them gone. The
+portable exes install nothing: switch off **Start with Windows** in the menu, then delete
+the files.
+
+**macOS.** Switch off **Open at Login** in Perch's menu (or delete
+`~/Library/LaunchAgents/com.eaglespirit.perch.plist`), quit Perch, and drag Perch.app to
+the Bin. Settings live in `~/Library/Application Support/Perch`, and remove the
+`/usr/local/bin/perch-cli` link if you made one.
+
 ## Schedule
 
 Flip **Run the schedule** on and press **Edit schedule** for a row per weekday:
@@ -245,6 +258,33 @@ published, under the identifier `EagleSpirit.Perch`. Two things have to be set u
    Answer its prompts, let it submit the pull request, and wait for a maintainer to merge
    it. After that every release is automatic.
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by
+[SignPath Foundation](https://signpath.org).
+
+The Windows programs and installer published on the
+[releases page](https://github.com/eaglespirittech/perch/releases) are signed, from the
+first release signed this way onwards. Only files built from this repository by its
+[release workflow](.github/workflows/release.yml), on GitHub-hosted runners, are submitted
+for signing: `Perch.exe`, `perch-cli.exe`, Perch's own `.dll` files and the installer.
+Third-party components, such as the .NET runtime and Avalonia, are shipped as their
+authors built them.
+
+**Team roles**
+
+- Committers and reviewers: [amir-khatibzadeh](https://github.com/amir-khatibzadeh)
+- Approvers: [amir-khatibzadeh](https://github.com/amir-khatibzadeh)
+
+Changes from anyone outside that list are reviewed by a committer before they are merged,
+and every signing request is approved by hand.
+
+**Privacy policy**
+
+This program will not transfer any information to other networked systems unless
+specifically requested by the user or the person installing or operating it. Perch talks
+only to your desk, over Bluetooth, and makes no network connections of its own.
+
 ## How the code is organised
 
 One codebase for both systems. Everything that can be shared is, and the few things that
@@ -342,6 +382,27 @@ Developer ID and notarise instead, add these repository secrets:
 | `MACOS_NOTARY_APPLE_ID` | the Apple ID that notarises |
 | `MACOS_NOTARY_PASSWORD` | an app-specific password for it |
 | `MACOS_NOTARY_TEAM_ID` | the team id |
+
+**Signing on Windows.** Through [SignPath Foundation](https://signpath.org), free for open
+source; see [Code signing policy](#code-signing-policy). Once the project is set up there,
+the release workflow signs the programs, builds the installer from them, signs that too,
+and checks every signature, waiting at each step for an approver to approve the request in
+SignPath. Until then it ships unsigned, as before. Setting it up:
+
+1. Apply at [signpath.org/apply](https://signpath.org/apply). Once accepted, SignPath
+   creates the organization; turn on multi-factor authentication there and on GitHub.
+2. In SignPath, create a project with the slug `perch` for this repository, add the
+   predefined **GitHub.com** trusted build system and link it to the project, and install
+   the SignPath GitHub App on this repository.
+3. Add two artifact configurations, pasting in
+   [`binaries.xml`](packaging/windows/signpath/binaries.xml) as `binaries` and
+   [`installer.xml`](packaging/windows/signpath/installer.xml) as `installer`.
+4. Create a signing policy with the slug `release-signing` using the certificate
+   SignPath Foundation provides, with yourself as approver.
+5. Create an API token for a CI user that may submit to that policy, and add it to this
+   repository as the secret `SIGNPATH_API_TOKEN`. Add the organization id as the
+   repository **variable** `SIGNPATH_ORGANIZATION_ID`. (Different slugs go in the variables
+   `SIGNPATH_PROJECT_SLUG` and `SIGNPATH_SIGNING_POLICY_SLUG`.)
 
 The app icons, `assets/perch.ico` and `assets/perch.icns`, are generated from the same
 geometry the app draws its icon with at runtime. After changing `AppIconShape`,
