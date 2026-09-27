@@ -241,8 +241,10 @@ versions and hashes by itself, so a release reaches Scoop users without anyone e
 ### WinGet
 
 `.github/workflows/winget.yml` opens the manifest-update pull request against
-[microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) whenever a release is
-published, under the identifier `EagleSpirit.Perch`. Two things have to be set up once:
+[microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) for each release, under
+the identifier `EagleSpirit.Perch`. The release workflow starts it once the release is
+published; run it by hand from the Actions tab (with the tag) to publish an older one.
+Two things have to be set up once:
 
 1. **A token.** Create a *classic* personal access token with the `public_repo` scope
    (fine-grained tokens are not supported by the action) and save it as a repository
@@ -256,7 +258,8 @@ published, under the identifier `EagleSpirit.Perch`. Two things have to be set u
    ```
 
    Answer its prompts, let it submit the pull request, and wait for a maintainer to merge
-   it. After that every release is automatic.
+   it. Until then the workflow notices the package is missing and does nothing; after
+   that every release is automatic.
 
 ## Code signing policy
 
