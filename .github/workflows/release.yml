@@ -205,6 +205,9 @@ jobs:
   publish:
     needs: [windows, macos]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write # to start the WinGet workflow
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -228,3 +231,11 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes
+
+      # A release created with this workflow's token does not fire the "released" event
+      # for other workflows (GitHub blocks that to prevent loops), so winget.yml never
+      # heard about releases made here. Starting it directly is the one route allowed.
+      - name: Start the WinGet update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run winget.yml --repo "$GITHUB_REPOSITORY" --ref main -f tag="$GITHUB_REF_NAME"
