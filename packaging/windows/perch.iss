@@ -34,6 +34,12 @@ AppPublisherURL={#RepoUrl}
 AppSupportURL={#RepoUrl}/issues
 AppUpdatesURL={#RepoUrl}/releases
 VersionInfoVersion={#AppVersion}
+; Code signing checks these against the release, as it does for the app's own files.
+VersionInfoProductName={#AppName}
+VersionInfoProductVersion={#AppVersion}
+VersionInfoProductTextVersion={#AppVersion}
+VersionInfoCompany={#Publisher}
+VersionInfoDescription={#AppName} installer
 
 DefaultDirName={autopf}\{#AppName}
 DisableProgramGroupPage=yes
