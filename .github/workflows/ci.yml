@@ -63,3 +63,20 @@ jobs:
             dist/*.dmg
             dist/*.tar.gz
           retention-days: 7
+
+  # The one check the "Protect main" ruleset requires, standing for every platform above.
+  # It always runs and fails unless all of them succeeded: GitHub counts a skipped
+  # required check as passing, which would let a failed platform through.
+  build:
+    needs: [windows, macos]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: A platform did not build
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: |
+          echo "::error::Windows: ${{ needs.windows.result }}, macOS: ${{ needs.macos.result }}"
+          exit 1
+
+      - name: Every platform built
+        run: echo "Windows and macOS both built, tested and packaged."
