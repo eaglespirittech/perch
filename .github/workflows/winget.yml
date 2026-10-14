@@ -50,3 +50,6 @@ jobs:
           installers-regex: 'setup\.exe$'
           release-tag: ${{ inputs.tag || github.event.release.tag_name }}
           token: ${{ secrets.WINGET_TOKEN }}
+          # The fork of winget-pkgs belongs to the account that owns WINGET_TOKEN, not to
+          # this repository's organisation, which is what the action assumes otherwise.
+          fork-user: amir-khatibzadeh
