@@ -6,6 +6,7 @@ using Perch.App.Theme;
 using Perch.App.ViewModels;
 using Perch.Desk;
 using Perch.Scheduling;
+using Perch.Updates;
 
 namespace Perch.App.Views;
 
@@ -97,10 +98,53 @@ public sealed partial class MainWindow : Window
         menu.Items.Add(startup);
 
         menu.Items.Add(new Separator());
+        AddUpdateItems(menu, vm);
+
+        menu.Items.Add(new Separator());
         menu.Items.Add(Item("Open settings folder", OpenSettingsFolder));
         menu.Items.Add(Item("Quit Perch", () => (Avalonia.Application.Current as App)?.Exit()));
 
         menu.ShowAt(MenuButton);
+    }
+
+    static void AddUpdateItems(MenuFlyout menu, MainViewModel vm)
+    {
+        if (Avalonia.Application.Current is not App { Updater: { } updater } app) return;
+
+        var version = updater.Latest?.VersionText;
+        switch (updater.State)
+        {
+            case UpdateState.Ready:
+                menu.Items.Add(Item($"Restart to update to {version}", app.RestartToUpdate));
+                break;
+            case UpdateState.Downloading:
+                menu.Items.Add(new MenuItem { Header = $"Downloading Perch {version}...", IsEnabled = false });
+                break;
+            case UpdateState.Available when updater.Latest is { } release:
+                menu.Items.Add(Item($"Get Perch {version}...", () => vm.Platform.OpenLink(release.Page.ToString())));
+                break;
+            default:
+                var check = Item(updater.State == UpdateState.Checking ? "Checking for updates..." : "Check for updates",
+                    app.CheckForUpdatesAsync);
+                check.IsEnabled = updater.IsEnabled && !updater.IsBusy;
+                menu.Items.Add(check);
+                break;
+        }
+
+        var settings = vm.Session.Settings;
+        var automatic = new MenuItem
+        {
+            Header = "Check for updates automatically",
+            ToggleType = MenuItemToggleType.CheckBox,
+            IsChecked = settings.CheckForUpdates,
+            IsEnabled = updater.IsEnabled
+        };
+        automatic.Click += (_, _) =>
+        {
+            settings.CheckForUpdates = !settings.CheckForUpdates;
+            settings.Save();
+        };
+        menu.Items.Add(automatic);
     }
 
     static MenuItem Item(string header, Func<Task> action)

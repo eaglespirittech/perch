@@ -16,4 +16,9 @@
     <InternalsVisibleTo Include="Perch.Tests" />
   </ItemGroup>
 
+  <!-- The public half of the key the release workflow signs checksums.txt with. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\packaging\release-signing-key.pub" LogicalName="release-signing-key.pub" />
+  </ItemGroup>
+
 </Project>

@@ -15,6 +15,15 @@ public sealed class Settings
 
     /// <summary>Whether the "still running down here" hint has been shown once.</summary>
     public bool TrayHintShown { get; set; }
+
+    /// <summary>Look for new releases on GitHub a few times a day.</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
+    /// <summary>
+    /// The version an update was installing when Perch quit for it, so the next start can
+    /// say whether it took. Cleared once read.
+    /// </summary>
+    public string? PendingUpdate { get; set; }
     public WeekSchedule Schedule { get; set; } = new();
 
     /// <summary>

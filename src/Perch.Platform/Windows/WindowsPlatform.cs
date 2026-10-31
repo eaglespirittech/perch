@@ -8,8 +8,11 @@ public sealed class WindowsPlatform : IPlatform
     public string Name => "Windows";
     public IBluetooth Bluetooth { get; } = new WinRtBluetooth();
     public IAutoStart AutoStart { get; } = new RunKeyAutoStart();
+    public ISelfUpdate SelfUpdate { get; } = new WindowsSelfUpdate();
     public string TrayName => "notification area";
 
     public void RevealFolder(string path) =>
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"") { UseShellExecute = true });
+
+    public void OpenLink(string url) => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
 }

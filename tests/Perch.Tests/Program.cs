@@ -1,6 +1,7 @@
 using Perch.Bluetooth;
 using Perch.Desk;
 using Perch.Scheduling;
+using Perch.Updates;
 
 var failures = 0;
 
@@ -181,6 +182,60 @@ Check("Pick: saved wins", "c", DeskPicker.Pick(devices, "c")?.Id ?? "none");
 Check("Pick: desk-like name", "b", DeskPicker.Pick(devices, null)?.Id ?? "none");
 Check("Pick: explicit name", "a", DeskPicker.Pick(devices, "b", "keyb")?.Id ?? "none");
 Check("Pick: nothing desk-like", "none", DeskPicker.Pick(new[] { devices[0] }, null)?.Id ?? "none");
+
+// ---- updates ---------------------------------------------------------------
+
+const string releaseJson = """
+    {
+      "tag_name": "v1.4.0",
+      "html_url": "https://github.com/eaglespirittech/perch/releases/tag/v1.4.0",
+      "draft": false,
+      "prerelease": false,
+      "assets": [
+        { "name": "Perch-1.4.0-setup.exe", "size": 52000000,
+          "browser_download_url": "https://github.com/eaglespirittech/perch/releases/download/v1.4.0/Perch-1.4.0-setup.exe" },
+        { "name": "Perch-1.4.0-setup.exe.sha256", "size": 88,
+          "browser_download_url": "https://github.com/eaglespirittech/perch/releases/download/v1.4.0/Perch-1.4.0-setup.exe.sha256" },
+        { "name": "plain.exe", "size": 1, "browser_download_url": "http://example.com/plain.exe" }
+      ]
+    }
+    """;
+var release = Release.Parse(releaseJson)!;
+Check("Update: version from the tag", "1.4.0.0", release.Version);
+Check("Update: version text has no v", "1.4.0", release.VersionText);
+Check("Update: asset found by name", 52000000L, release.Asset("Perch-1.4.0-setup.exe")!.Size);
+Check("Update: plain http assets ignored", "null", release.Asset("plain.exe")?.Name ?? "null");
+Check("Update: newer than 1.3.9", true, release.Version > Release.Normalize(new Version(1, 3, 9, 0)));
+Check("Update: not newer than itself", false, release.Version > Release.Normalize(new Version(1, 4, 0, 0)));
+Check("Update: drafts skipped", "null", Release.Parse("""{ "tag_name": "v9.0.0", "draft": true }""")?.ToString() ?? "null");
+Check("Update: prereleases skipped", "null", Release.Parse("""{ "tag_name": "v9.0.0", "prerelease": true }""")?.ToString() ?? "null");
+Check("Update: odd tags skipped", "null", Release.Parse("""{ "tag_name": "nightly" }""")?.ToString() ?? "null");
+Check("Update: four-part version", "1.2.3.4", Release.ParseVersion("1.2.3.4")!);
+
+var hashA = new string('a', 62) + "Bc";
+var hashB = new string('b', 64);
+var checksums = $"{hashA}  Perch-1.4.0-setup.exe\n{hashB} *Perch-1.4.0-win-x64.exe\nnot a hash  plain.exe\n";
+Check("Update: checksum found in the list", new string('a', 62) + "bc",
+    ReleaseSignature.FindChecksum(checksums, "Perch-1.4.0-setup.exe") ?? "null");
+Check("Update: binary-mode line read", hashB, ReleaseSignature.FindChecksum(checksums, "Perch-1.4.0-win-x64.exe") ?? "null");
+Check("Update: junk is not a checksum", "null", ReleaseSignature.FindChecksum(checksums, "plain.exe") ?? "null");
+Check("Update: unlisted file has no checksum", "null", ReleaseSignature.FindChecksum(checksums, "other.exe") ?? "null");
+
+// Signed by a stand-in key the way the release workflow signs: ECDSA P-256, DER signature.
+using (var signer = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256))
+{
+    var list = System.Text.Encoding.UTF8.GetBytes(checksums);
+    var signature = signer.SignData(list, System.Security.Cryptography.HashAlgorithmName.SHA256,
+        System.Security.Cryptography.DSASignatureFormat.Rfc3279DerSequence);
+    var publicKey = signer.ExportSubjectPublicKeyInfoPem();
+
+    Check("Update: signed list verifies", true, ReleaseSignature.Verify(list, signature, publicKey));
+    var tampered = (byte[])list.Clone();
+    tampered[0] ^= 1;
+    Check("Update: altered list fails", false, ReleaseSignature.Verify(tampered, signature, publicKey));
+    Check("Update: other key's signature fails", false, ReleaseSignature.Verify(list, signature));
+    Check("Update: garbage signature fails", false, ReleaseSignature.Verify(list, [1, 2, 3], publicKey));
+}
 
 // ---- the move loop, against the simulated desk -----------------------------
 

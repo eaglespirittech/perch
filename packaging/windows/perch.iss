@@ -90,8 +90,15 @@ Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; \
 
 [Run]
 Filename: "{app}\Perch.exe"; Description: "Start Perch"; Flags: nowait postinstall skipifsilent
+; Perch's own updater runs this installer silently with /RELAUNCH=1 after quitting itself.
+Filename: "{app}\Perch.exe"; Flags: nowait; Check: Relaunching
 
 [Code]
+function Relaunching: Boolean;
+begin
+  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
+
 function NeedsAddPath(Param: string): boolean;
 var
   Existing: string;
