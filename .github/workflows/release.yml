@@ -10,6 +10,10 @@ name: Release
 #   MACOS_CERTIFICATE_PASSWORD  its password
 #   MACOS_SIGN_IDENTITY         "Developer ID Application: Name (TEAMID)"
 #   MACOS_NOTARY_APPLE_ID, MACOS_NOTARY_PASSWORD, MACOS_NOTARY_TEAM_ID
+#
+# Perch installs an update by itself only when the release's checksums.txt is signed with
+# the key whose public half is packaging/release-signing-key.pub:
+#   RELEASE_SIGNING_KEY         that key's private half, as PEM
 on:
   push:
     tags:
@@ -209,19 +213,47 @@ jobs:
       contents: write
       actions: write # to start the WinGet workflow
     steps:
+      # Only for the public key the signature is checked against.
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: packaging/release-signing-key.pub
+          sparse-checkout-cone-mode: false
+
       - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: dist
           merge-multiple: true
 
+      # A sidecar per file for people checking by hand, and one list of them all, which is
+      # what gets signed.
       - name: Checksum
         working-directory: dist
         run: |
-          for file in *; do
+          files=(*)
+          for file in "${files[@]}"; do
             sha256sum "$file" > "$file.sha256"
           done
+          sha256sum "${files[@]}" > checksums.txt
           ls -l
+
+      # Without this signature, Perch tells people about the release but will not install
+      # it for them. The check catches a secret that does not match the committed key.
+      - name: Sign the checksums
+        working-directory: dist
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          if [ -z "$RELEASE_SIGNING_KEY" ]; then
+            echo "::warning::RELEASE_SIGNING_KEY is not set, so this release is unsigned and Perch will not update to it by itself."
+            exit 0
+          fi
+          key="$RUNNER_TEMP/release-signing-key.pem"
+          printf '%s\n' "$RELEASE_SIGNING_KEY" > "$key"
+          openssl dgst -sha256 -sign "$key" -out checksums.txt.sig checksums.txt
+          rm "$key"
+          openssl dgst -sha256 -verify "$GITHUB_WORKSPACE/packaging/release-signing-key.pub" \
+            -signature checksums.txt.sig checksums.txt
 
       - name: Create the release
         env:

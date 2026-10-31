@@ -103,6 +103,32 @@ into the menu bar. It needs no admin rights and appears under **System Settings 
 General → Login Items**, where it can be switched off. Moving Perch.app is handled the
 same way as on Windows.
 
+## Updates
+
+Perch keeps itself up to date. A minute after it starts, and every six hours after that,
+it asks GitHub for the latest release. When there is a newer one it downloads it in the
+background, checks it against the release's signed list of SHA-256 hashes (see
+[Signing the update checksums](#releasing)), and asks you to restart.
+**Restart now** quits Perch, installs the update and opens the new version; **Later** leaves
+a **Restart to update** item in the window menu and the tray (or menu bar) menu for when it
+suits you. Perch will not restart in the middle of a desk move.
+
+How the update is installed depends on how Perch was:
+
+- **Windows installer or WinGet** — runs the new installer silently (just a progress bar)
+  over the existing install, keeping your choices, then starts Perch again.
+- **Windows portable exe** — downloads the new portable exe and swaps it in under the same
+  file name. The portable `perch-cli` is not updated with it.
+- **macOS** — copies the new Perch.app out of the release's disk image, checks its code
+  signature, and replaces the old one where it is. That needs write access to the folder
+  Perch.app is in, which an administrator account has for Applications.
+
+A copy that cannot replace itself — a Scoop install (Scoop updates it), a standard macOS
+account, or a development build — still tells you when a new version is out and links to
+the releases page. So does any copy when a release has no valid signature: Perch never
+installs a download it cannot verify. **Check for updates** in the window menu checks straight away;
+**Check for updates automatically** switches the background check off and on.
+
 ## Uninstalling
 
 **Windows.** Uninstall Perch from **Settings → Apps → Installed apps**. That also removes
@@ -302,7 +328,11 @@ and every signing request is approved by hand.
 
 This program will not transfer any information to other networked systems unless
 specifically requested by the user or the person installing or operating it. Perch talks
-only to your desk, over Bluetooth, and makes no network connections of its own.
+only to your desk, over Bluetooth. Its one network connection is the update check (see
+[Updates](#updates)): it asks GitHub's public API for the latest release of Perch and, when
+there is a newer one, downloads it from GitHub. Nothing about you, your desk or your
+settings is sent; the request carries only Perch's version, as its user agent. Switch off
+**Check for updates automatically** in the menu to stop it.
 
 ## How the code is organised
 
@@ -313,11 +343,13 @@ cannot sit behind interfaces with one implementation per OS.
 src/
   Perch.Core/        net9.0, no platform APIs. The Linak protocol and move loop
                      (DeskController), the session logic the window drives
-                     (DeskSession), schedule, settings, the app/CLI pipe, and the
-                     interfaces below.
+                     (DeskSession), schedule, settings, the app/CLI pipe, the
+                     update check and download (Updater), and the interfaces below.
   Perch.Platform/    One IPlatform per OS, chosen at build time:
-    Windows/           WinRT Bluetooth, the Run registry key, Explorer
-    MacOS/             CoreBluetooth through perch-ble, a LaunchAgent, Finder
+    Windows/           WinRT Bluetooth, the Run registry key, Explorer, and
+                       updating through the installer or by swapping the portable exe
+    MacOS/             CoreBluetooth through perch-ble, a LaunchAgent, Finder, and
+                       updating by swapping Perch.app
   Perch.App/         The window, tray/menu bar icon and schedule editor, in Avalonia
                      (MIT licensed, runs on both).
   Perch.Cli/         perch-cli.
@@ -329,7 +361,7 @@ tests/Perch.Tests/   Schedule, scheduler, protocol and the full move loop, the l
 ```
 
 The seams are `IBluetooth` / `IGattConnection` / `IGattCharacteristic` (find a desk,
-connect, read, write and subscribe to a characteristic), `IAutoStart`, and `IPlatform`,
+connect, read, write and subscribe to a characteristic), `IAutoStart`, `ISelfUpdate`, and `IPlatform`,
 which gathers them. The app and the CLI target both `net9.0-windows10.0.19041.0` and
 `net9.0`; the first gets the Windows implementation, the second the macOS one.
 
@@ -388,6 +420,29 @@ It re-runs the tests, then builds in parallel:
 
 and publishes them all, each with a SHA-256 sidecar, as one generated GitHub release. The
 tag must look like `v1.2.3` or the workflow stops before building.
+
+**Signing the update checksums.** The release also carries `checksums.txt`, every file's
+SHA-256 in one list, and `checksums.txt.sig`, an ECDSA P-256 signature of that list. Perch
+installs an update by itself only when the signature checks out against the public key
+built into it, `packaging/release-signing-key.pub`, and the download matches its hash in
+the list. Someone able to change a release on GitHub could replace a file and its hash
+together, but not sign the list. The private key is the repository secret
+`RELEASE_SIGNING_KEY` (the whole PEM, header lines included). Without it the release goes
+out unsigned, with a warning in the run, and Perch only says the release is available. The
+workflow checks each signature against the committed public key, so a secret that does
+not match fails the release instead of shipping a signature nobody can verify.
+
+Keep a copy of the private key somewhere safe, such as a password manager. To replace it,
+generate a new pair, commit the new `.pub` and update the secret:
+
+```bash
+openssl ecparam -name prime256v1 -genkey -noout -out release-signing-key.pem
+openssl ec -in release-signing-key.pem -pubout -out packaging/release-signing-key.pub
+```
+
+Copies of Perch built with the old public key cannot verify releases signed with the new
+one, so they stop updating by themselves and only announce new releases; people on those
+copies update once by hand.
 
 **Signing on macOS.** Without secrets, the macOS builds are ad hoc signed: they run, but
 macOS shows the first-launch prompt described under the macOS install. To sign with a

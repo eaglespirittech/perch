@@ -8,12 +8,17 @@ public sealed class MacPlatform : IPlatform
     public string Name => "macOS";
     public IBluetooth Bluetooth { get; } = new HelperBluetooth();
     public IAutoStart AutoStart { get; } = new LaunchAgentAutoStart();
+    public ISelfUpdate SelfUpdate { get; } = new BundleSelfUpdate();
     public string TrayName => "menu bar";
 
-    public void RevealFolder(string path)
+    public void RevealFolder(string path) => Open(path);
+
+    public void OpenLink(string url) => Open(url);
+
+    static void Open(string target)
     {
         var start = new ProcessStartInfo("/usr/bin/open") { UseShellExecute = false };
-        start.ArgumentList.Add(path);
+        start.ArgumentList.Add(target);
         Process.Start(start)?.Dispose();
     }
 

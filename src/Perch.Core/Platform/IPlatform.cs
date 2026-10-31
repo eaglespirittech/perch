@@ -16,8 +16,13 @@ public interface IPlatform
 
     IAutoStart AutoStart { get; }
 
+    ISelfUpdate SelfUpdate { get; }
+
     /// <summary>Opens a folder in Explorer or Finder.</summary>
     void RevealFolder(string path);
+
+    /// <summary>Opens a web page in the default browser.</summary>
+    void OpenLink(string url);
 
     /// <summary>Where the app lives while its window is closed: "notification area" or "menu bar".</summary>
     string TrayName { get; }
@@ -36,4 +41,34 @@ public interface IAutoStart
 
     /// <summary>Keeps an existing registration pointing at wherever the app now lives.</summary>
     void RefreshIfEnabled();
+}
+
+/// <summary>
+/// Replacing the running app with a newer release. <see cref="Updates.Updater"/> finds and
+/// downloads the release; this is the part that differs by OS and by how Perch was installed.
+/// </summary>
+public interface ISelfUpdate
+{
+    /// <summary>
+    /// The release file this copy updates from, such as "Perch-1.2.3-setup.exe", or null
+    /// when it cannot replace itself: a development build, a copy a package manager looks
+    /// after, or one in a folder this user cannot write to.
+    /// </summary>
+    string? AssetName(string version);
+
+    /// <summary>
+    /// Gets a downloaded release ready to install without touching the running app, and
+    /// returns what <see cref="Apply"/> should install. Throws when the file is unusable.
+    /// </summary>
+    Task<string> PrepareAsync(string downloaded, CancellationToken ct);
+
+    /// <summary>
+    /// Installs what <see cref="PrepareAsync"/> returned and arranges for the new version to
+    /// start once this process has gone. The caller quits straight afterwards. Throws, leaving
+    /// the running app as it was, when it cannot.
+    /// </summary>
+    void Apply(string prepared);
+
+    /// <summary>Removes whatever an earlier update left behind.</summary>
+    void CleanUp();
 }

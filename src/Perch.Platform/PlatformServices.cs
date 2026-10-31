@@ -31,7 +31,9 @@ public static class PlatformServices
         public string Name => inner.Name;
         public IBluetooth Bluetooth { get; } = new SimulatedBluetooth();
         public IAutoStart AutoStart => inner.AutoStart;
+        public ISelfUpdate SelfUpdate => inner.SelfUpdate;
         public string TrayName => inner.TrayName;
         public void RevealFolder(string path) => inner.RevealFolder(path);
+        public void OpenLink(string url) => inner.OpenLink(url);
     }
 }

@@ -13,7 +13,11 @@
       <TextBlock x:Name="Heading" Classes="strong" FontSize="15" VerticalAlignment="Center" />
     </StackPanel>
     <SelectableTextBlock x:Name="Body" TextWrapping="Wrap" Foreground="{DynamicResource Perch.TextSecondary}" />
-    <Button Classes="primary" Content="OK" Width="90" Height="32" HorizontalAlignment="Right"
-            IsDefault="True" IsCancel="True" Click="OnOk" />
+    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+      <Button x:Name="OkButton" Classes="primary" Content="OK" MinWidth="90" Height="32"
+              IsDefault="True" IsCancel="True" Click="OnOk" />
+      <Button x:Name="ActionButton" Classes="primary" MinWidth="90" Height="32" Padding="14,0"
+              IsVisible="False" Click="OnAction" />
+    </StackPanel>
   </StackPanel>
 </Window>

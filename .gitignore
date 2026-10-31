@@ -3,3 +3,6 @@ obj/
 dist/
 *.user
 .vs/
+
+# Private keys, such as the release signing key, never belong in the repository.
+*.pem
