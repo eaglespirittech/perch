@@ -485,3 +485,18 @@ regenerate them with:
 ```bash
 dotnet run --project tools/IconGen
 ```
+
+## The name
+
+Perch was called Idasen Desk Control until it was renamed, so that its name would not
+borrow IKEA's trademark. Perch was picked for these reasons:
+
+- **The height in between.** Perching is the half-seated position between sitting and
+  standing at a sit/stand desk, often on a perching stool, and it is one of the heights
+  people save as a preset.
+- **Settling at a height.** A bird lands on a perch, stays a while, then moves on. Perch
+  takes the desk to a height, keeps it there and moves it again when the schedule says so.
+- **A measure of length.** A perch is an old English unit of length, also called a rod or
+  pole, from the Latin *pertica*, a measuring staff. The app exists to reach an exact
+  height.
+- **The publisher.** It fits the bird theme of Eagle Spirit, which publishes the app.
