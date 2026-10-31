@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Perch.App.Controls;
 using Perch.App.ViewModels;
 using Perch.Scheduling;
@@ -26,6 +27,18 @@ public sealed partial class ScheduleWindow : Window
         _viewModel = new ScheduleViewModel(schedule);
         DataContext = _viewModel;
         Icon = AppIcon.WindowIcon();
+
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ScheduleViewModel.Mode)) PulseModeColumns();
+        };
+    }
+
+    /// <summary>Only two headings change when the type does, so flash their band to point at them.</summary>
+    void PulseModeColumns()
+    {
+        ModeBand.Classes.Add("flash");
+        DispatcherTimer.RunOnce(() => ModeBand.Classes.Remove("flash"), TimeSpan.FromMilliseconds(350));
     }
 
     void OnFieldLeft(object? sender, RoutedEventArgs e)

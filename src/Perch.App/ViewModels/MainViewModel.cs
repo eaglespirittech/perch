@@ -109,11 +109,15 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public string NextMoveText => Session.NextMoveText;
+    public string ScheduleTitle => Session.ScheduleTitle;
+    public string ScheduleGlyph => Session.Settings.Schedule.Mode == ScheduleMode.Rotation ? "rotate" : "clock";
 
     public void SetSchedule(WeekSchedule schedule)
     {
         Session.SetSchedule(schedule);
         OnPropertyChanged(nameof(NextMoveText));
+        OnPropertyChanged(nameof(ScheduleTitle));
+        OnPropertyChanged(nameof(ScheduleGlyph));
     }
 
     /// <summary>Tidies whatever was typed once the box loses focus.</summary>

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Perch.Scheduling;
 
 namespace Perch;
@@ -45,11 +46,7 @@ public sealed class Settings
             {
                 if (path is null || !File.Exists(path)) continue;
 
-                var loaded = JsonSerializer.Deserialize<Settings>(File.ReadAllText(path));
-                if (loaded is null) continue;
-
-                loaded.Schedule = (loaded.Schedule ?? new WeekSchedule()).Normalized();
-                return loaded;
+                if (Parse(File.ReadAllText(path)) is { } loaded) return loaded;
             }
             catch
             {
@@ -58,6 +55,21 @@ public sealed class Settings
         }
 
         return new Settings();
+    }
+
+    internal static Settings? Parse(string json)
+    {
+        var loaded = JsonSerializer.Deserialize<Settings>(json);
+        if (loaded is null) return null;
+
+        loaded.Schedule = (loaded.Schedule ?? new WeekSchedule()).Normalized();
+
+        // Schedules saved before rotation existed carry no mode and were all hourly. Keep
+        // them that way instead of quietly switching someone's working schedule.
+        if (JsonNode.Parse(json)?["Schedule"] is JsonObject saved && saved["Mode"] is null)
+            loaded.Schedule.Mode = ScheduleMode.Hourly;
+
+        return loaded;
     }
 
     public void Save()
