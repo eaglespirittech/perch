@@ -14,14 +14,51 @@ public sealed class ScheduleViewModel : ObservableObject
     };
 
     string _error = string.Empty;
+    ScheduleMode _mode;
 
     public ScheduleViewModel(WeekSchedule schedule)
     {
         schedule = schedule.Normalized();
+        _mode = schedule.Mode;
         Days = DisplayOrder.Select(day => new DayRow(day, schedule[day])).ToList();
     }
 
     public IReadOnlyList<DayRow> Days { get; }
+
+    public ScheduleMode Mode
+    {
+        get => _mode;
+        set
+        {
+            if (!SetProperty(ref _mode, value)) return;
+            OnPropertyChanged(nameof(IsHourly));
+            OnPropertyChanged(nameof(IsRotation));
+            OnPropertyChanged(nameof(Explanation));
+            OnPropertyChanged(nameof(ModeName));
+            OnPropertyChanged(nameof(ModeGlyph));
+        }
+    }
+
+    /// <summary>Labels the table's type-specific columns, matching the chosen card.</summary>
+    public string ModeName => _mode == ScheduleMode.Rotation ? "Rotation" : "Every hour";
+    public string ModeGlyph => _mode == ScheduleMode.Rotation ? "rotate" : "clock";
+
+    /// <summary>The two radio buttons. Only the one being checked acts, so unchecking is ignored.</summary>
+    public bool IsHourly
+    {
+        get => _mode == ScheduleMode.Hourly;
+        set { if (value) Mode = ScheduleMode.Hourly; }
+    }
+
+    public bool IsRotation
+    {
+        get => _mode == ScheduleMode.Rotation;
+        set { if (value) Mode = ScheduleMode.Rotation; }
+    }
+
+    public string Explanation => _mode == ScheduleMode.Rotation
+        ? "Inside each active window the desk starts at the return height, stays there for the sitting minutes, goes up for the standing minutes, and repeats until the window closes."
+        : "Inside each active window the desk goes up at that minute past every hour, stays up for the given number of minutes, then returns to the other height.";
 
     public string Error
     {
@@ -40,7 +77,7 @@ public sealed class ScheduleViewModel : ObservableObject
     /// <summary>The finished schedule, or null with <see cref="Error"/> set when something needs fixing.</summary>
     public WeekSchedule? TryBuild(out DayRow? problem)
     {
-        var result = new WeekSchedule();
+        var result = new WeekSchedule { Mode = _mode };
         foreach (var row in Days)
         {
             var value = row.Read();
@@ -63,7 +100,8 @@ public sealed class DayRow : ObservableObject
 {
     bool _enabled;
     string _from = string.Empty, _until = string.Empty, _standAt = string.Empty,
-        _standFor = string.Empty, _standCm = string.Empty, _sitCm = string.Empty;
+        _standFor = string.Empty, _standCm = string.Empty, _sitCm = string.Empty,
+        _rotationSit = string.Empty, _rotationStand = string.Empty;
 
     public DayRow(DayOfWeek day, DaySchedule value)
     {
@@ -81,6 +119,8 @@ public sealed class DayRow : ObservableObject
     public string StandFor { get => _standFor; set => SetProperty(ref _standFor, value); }
     public string StandCm { get => _standCm; set => SetProperty(ref _standCm, value); }
     public string SitCm { get => _sitCm; set => SetProperty(ref _sitCm, value); }
+    public string RotationSit { get => _rotationSit; set => SetProperty(ref _rotationSit, value); }
+    public string RotationStand { get => _rotationStand; set => SetProperty(ref _rotationStand, value); }
 
     public void Load(DaySchedule value)
     {
@@ -91,7 +131,12 @@ public sealed class DayRow : ObservableObject
         StandFor = Whole(Math.Clamp(value.StandMinutes, 1, 59));
         StandCm = Centimetres(value.StandCm);
         SitCm = Centimetres(value.SitCm);
+        RotationSit = Whole(Math.Clamp(value.RotationSitMinutes, 1, MaxRotationMinutes));
+        RotationStand = Whole(Math.Clamp(value.RotationStandMinutes, 1, MaxRotationMinutes));
     }
+
+    /// <summary>Four hours either way is already more than anyone sits or stands in one go.</summary>
+    const int MaxRotationMinutes = 240;
 
     public DaySchedule Read() => new()
     {
@@ -101,7 +146,9 @@ public sealed class DayRow : ObservableObject
         StandAtMinute = ParseWhole(StandAt, 50, 0, 59),
         StandMinutes = ParseWhole(StandFor, 10, 1, 59),
         StandCm = ParseHeight(StandCm, 110),
-        SitCm = ParseHeight(SitCm, 72)
+        SitCm = ParseHeight(SitCm, 72),
+        RotationSitMinutes = ParseWhole(RotationSit, 45, 1, MaxRotationMinutes),
+        RotationStandMinutes = ParseWhole(RotationStand, 15, 1, MaxRotationMinutes)
     };
 
     /// <summary>Rewrites every field in its tidy form, e.g. after a field loses focus.</summary>

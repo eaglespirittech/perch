@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Perch.Scheduling;
 
 public enum DeskState
@@ -6,6 +8,17 @@ public enum DeskState
     Idle,
     Sit,
     Stand
+}
+
+/// <summary>How the stand slots inside a day window are laid out.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<ScheduleMode>))]
+public enum ScheduleMode
+{
+    /// <summary>Up at a fixed minute past every hour, for a set time.</summary>
+    Hourly,
+
+    /// <summary>Sit for a while, stand for a while, repeat, counted from the start of the window.</summary>
+    Rotation
 }
 
 public readonly record struct ScheduleState(DeskState State, double TargetCm, double SitCm);
@@ -25,6 +38,10 @@ public sealed class DaySchedule
     /// <summary>How long it stays up.</summary>
     public int StandMinutes { get; set; } = 10;
 
+    /// <summary>Rotation mode: minutes sitting, then minutes standing, over and over from <see cref="FromMinute"/>.</summary>
+    public int RotationSitMinutes { get; set; } = 45;
+    public int RotationStandMinutes { get; set; } = 15;
+
     public double StandCm { get; set; } = 110.0;
     public double SitCm { get; set; } = 72.0;
 
@@ -33,6 +50,13 @@ public sealed class DaySchedule
 
 public sealed class WeekSchedule
 {
+    /// <summary>
+    /// Which kind of schedule runs. Both kinds keep their own settings on every day, so
+    /// switching back and forth loses nothing. Rotation unless an older settings file says
+    /// otherwise (see <see cref="Settings"/>).
+    /// </summary>
+    public ScheduleMode Mode { get; set; } = ScheduleMode.Rotation;
+
     /// <summary>Indexed by <see cref="DayOfWeek"/>, so 0 is Sunday.</summary>
     public List<DaySchedule> Days { get; set; } = CreateDefaultDays();
 
@@ -67,6 +91,17 @@ public sealed class WeekSchedule
         var time = now.TimeOfDay;
         if (time < TimeSpan.FromMinutes(day.FromMinute) || time >= TimeSpan.FromMinutes(day.ToMinute))
             return new ScheduleState(DeskState.Idle, 0, day.SitCm);
+
+        if (Mode == ScheduleMode.Rotation)
+        {
+            // Sit first, then stand, counted from the moment the window opens.
+            var sit = TimeSpan.FromMinutes(Math.Max(1, day.RotationSitMinutes));
+            var cycle = sit + TimeSpan.FromMinutes(Math.Max(1, day.RotationStandMinutes));
+            var into = TimeSpan.FromTicks((time - TimeSpan.FromMinutes(day.FromMinute)).Ticks % cycle.Ticks);
+            return into < sit
+                ? new ScheduleState(DeskState.Sit, day.SitCm, day.SitCm)
+                : new ScheduleState(DeskState.Stand, day.StandCm, day.SitCm);
+        }
 
         // Stand slots are anchored to the top of each hour. Check the current hour and
         // the previous one, so a slot that runs past :59 still counts.

@@ -14,7 +14,7 @@ void Check(string label, object expected, object actual)
 // ---- schedule --------------------------------------------------------------
 
 // Monday 2026-09-14. Window 09:00-17:00, stand at :50 for 10 minutes.
-var week = new WeekSchedule();
+var week = new WeekSchedule { Mode = ScheduleMode.Hourly };
 foreach (var d in week.Days) d.Enabled = false;
 var mon = week[DayOfWeek.Monday];
 mon.Enabled = true;
@@ -61,9 +61,62 @@ Check("Next move from Mon 09:52 when", M(10, 0), down!.Value.When);
 Check("Next move from Mon 09:52 what", DeskState.Sit, down!.Value.To);
 
 // Nothing enabled at all.
-var empty = new WeekSchedule();
+var empty = new WeekSchedule { Mode = ScheduleMode.Hourly };
 foreach (var d in empty.Days) d.Enabled = false;
 Check("Nothing enabled", "null", empty.NextMove(M(9, 0))?.ToString() ?? "null");
+
+// Rotation: sit 10, stand 5, from 09:00.
+week.Mode = ScheduleMode.Rotation;
+mon.RotationSitMinutes = 10;
+mon.RotationStandMinutes = 5;
+Check("Rotate: Mon 08:59 before the window", DeskState.Idle, week.Evaluate(M(8, 59)).State);
+Check("Rotate: Mon 09:00 sits first", DeskState.Sit, week.Evaluate(M(9, 0)).State);
+Check("Rotate: Mon 09:09 still sitting", DeskState.Sit, week.Evaluate(M(9, 9)).State);
+Check("Rotate: Mon 09:10 stands", DeskState.Stand, week.Evaluate(M(9, 10)).State);
+Check("Rotate: Mon 09:10 target height", 110d, week.Evaluate(M(9, 10)).TargetCm);
+Check("Rotate: Mon 09:14 still standing", DeskState.Stand, week.Evaluate(M(9, 14)).State);
+Check("Rotate: Mon 09:15 sits again", DeskState.Sit, week.Evaluate(M(9, 15)).State);
+Check("Rotate: Mon 09:25 second stand", DeskState.Stand, week.Evaluate(M(9, 25)).State);
+Check("Rotate: Mon 16:55 last stand", DeskState.Stand, week.Evaluate(M(16, 55)).State);
+Check("Rotate: Mon 17:00 window closes", DeskState.Idle, week.Evaluate(M(17, 0)).State);
+
+var rotateNext = week.NextMove(M(9, 12));
+Check("Rotate: next move from 09:12 when", M(9, 15), rotateNext!.Value.When);
+Check("Rotate: next move from 09:12 what", DeskState.Sit, rotateNext!.Value.To);
+
+// Counting starts at the window, not the hour.
+mon.FromMinute = 9 * 60 + 7;
+Check("Rotate: window at 09:07 stands at 09:17", DeskState.Stand, week.Evaluate(M(9, 17)).State);
+Check("Rotate: window at 09:07 sits at 09:16", DeskState.Sit, week.Evaluate(M(9, 16)).State);
+mon.FromMinute = 9 * 60;
+
+// The mode survives a trip through settings.json as a word, and old files read as hourly.
+var json = System.Text.Json.JsonSerializer.Serialize(week);
+Check("Rotate: mode saved by name", true, json.Contains("\"Mode\":\"Rotation\""));
+var roundTrip = System.Text.Json.JsonSerializer.Deserialize<WeekSchedule>(json)!;
+Check("Rotate: mode read back", ScheduleMode.Rotation, roundTrip.Mode);
+Check("Rotate: sit minutes read back", 10, roundTrip[DayOfWeek.Monday].RotationSitMinutes);
+Check("Rotate: new schedules rotate", ScheduleMode.Rotation, new WeekSchedule().Mode);
+Check("Rotate: old settings stay hourly", ScheduleMode.Hourly,
+    Perch.Settings.Parse("{\"Schedule\":{\"Days\":[]}}")!.Schedule.Mode);
+Check("Rotate: settings without a schedule rotate", ScheduleMode.Rotation, Perch.Settings.Parse("{}")!.Schedule.Mode);
+Check("Rotate: saved mode wins", ScheduleMode.Rotation,
+    Perch.Settings.Parse("{\"Schedule\":{\"Mode\":\"Rotation\"}}")!.Schedule.Mode);
+
+// Scheduler moves the desk on rotation edges just like hourly ones.
+var rotateClock = new FakeClock(M(9, 5));
+var rotateMoves = new List<string>();
+using (var scheduler = new Scheduler(rotateClock, startTimer: false) { Schedule = week, Enabled = true })
+{
+    scheduler.MoveRequested += (cm, reason) => rotateMoves.Add($"{reason} {cm}");
+    scheduler.Evaluate();
+    rotateClock.Now = M(9, 10);
+    scheduler.Evaluate();
+    rotateClock.Now = M(9, 15);
+    scheduler.Evaluate();
+    Check("Rotate: scheduler up then down", "scheduled stand 110,scheduled sit 72", string.Join(",", rotateMoves));
+}
+week.Mode = ScheduleMode.Hourly;
 
 // People type times every which way.
 Check("ParseTime 9", 540, ScheduleText.ParseTime("9", 0));

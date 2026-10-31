@@ -1,7 +1,7 @@
 # Perch
 
 Sit/stand desk control for the IKEA IDÅSEN. A small app for **Windows and macOS** that
-drives the desk to an exact height over Bluetooth LE, with presets and an hourly stand
+drives the desk to an exact height over Bluetooth LE, with presets and a sit/stand
 schedule. Type a height in cm, press Go. The `perch-cli` command line tool comes with it
 on both.
 
@@ -131,6 +131,22 @@ Flip **Run the schedule** on and press **Edit schedule** for a row per weekday:
 
 So `09:00`–`17:00`, stand at `50` for `10`, up `110`, return `72` means: every hour
 between 9 and 5, stand from :50 to :00 at 110 cm, then back to 72 cm.
+
+### Rotating sitting and standing
+
+The two cards at the top of the editor choose the kind of schedule: **Rotate sitting and
+standing**, the default, or **Stand every hour** (above). The columns that belong to the
+chosen kind sit on a tinted band labelled with its name. In rotation they are:
+
+| Column | Meaning |
+|--------|---------|
+| Sit (min) | how long to sit before standing up |
+| Stand (min) | how long to stand before sitting down again |
+
+The cycle starts when the day's window opens and repeats until it closes. So `09:00`–`17:00`
+with `10` and `5` means: sit 9:00–9:10, stand 9:10–9:15, sit 9:15–9:25, stand 9:25–9:30,
+and so on. Each kind keeps its own numbers, so switching back and forth loses nothing.
+A schedule saved by a version from before rotation existed stays on **Stand every hour**.
 
 **Copy** clones a finished row onto other days — all of them, just the weekdays, just
 the weekend, or one named day.

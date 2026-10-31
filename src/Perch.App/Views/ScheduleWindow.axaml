@@ -18,33 +18,125 @@
       <Setter Property="TextAlignment" Value="Center" />
       <Setter Property="Padding" Value="4,0" />
     </Style>
+
+    <!-- The schedule type: two big cards that act as one choice. -->
+    <Style Selector="RadioButton.choice">
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="frame" Background="{DynamicResource Perch.Surface}" BorderBrush="{DynamicResource Perch.Border}"
+                  BorderThickness="2" CornerRadius="12" Padding="14,12">
+            <ContentPresenter Content="{TemplateBinding Content}" />
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="RadioButton.choice:pointerover /template/ Border#frame">
+      <Setter Property="BorderBrush" Value="{DynamicResource Perch.AccentBright}" />
+    </Style>
+    <Style Selector="RadioButton.choice:checked /template/ Border#frame">
+      <Setter Property="Background" Value="{DynamicResource Perch.AccentSoft}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Perch.Accent}" />
+    </Style>
+    <Style Selector="RadioButton.choice:checked Border.badge">
+      <Setter Property="Background" Value="{DynamicResource Perch.Surface}" />
+    </Style>
+    <Style Selector="RadioButton.choice c|Glyph.tick">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="RadioButton.choice:checked c|Glyph.tick">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+
+    <!-- The columns that belong to the chosen type sit on a tinted band, which pulses
+         when the type changes so the eye goes to what just changed. -->
+    <Style Selector="Border.band">
+      <Setter Property="Background" Value="{DynamicResource Perch.AccentSoft}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.3" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Border.band.flash">
+      <Setter Property="Background" Value="{DynamicResource Perch.AccentBright}" />
+    </Style>
+
     <Style Selector="TextBlock.column">
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource Perch.TextSecondary}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
+    <Style Selector="TextBlock.column.mode">
+      <Setter Property="Foreground" Value="{DynamicResource Perch.Accent}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
   </Window.Styles>
 
   <StackPanel Margin="22,18,22,20">
     <TextBlock Classes="title" Text="Schedule" />
-    <TextBlock Classes="caption" TextWrapping="Wrap" Margin="0,6,0,16"
-               Text="Inside each active window the desk goes up at that minute past every hour, stays up for the given number of minutes, then returns to the other height." />
+    <Grid ColumnDefinitions="*,12,*" Margin="0,14,0,0">
+      <RadioButton Classes="choice" GroupName="mode" IsChecked="{Binding IsRotation}"
+                   AutomationProperties.Name="Rotate sitting and standing">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <Border Classes="badge">
+            <c:Glyph Kind="rotate" Width="20" Height="20" Foreground="{DynamicResource Perch.Accent}" />
+          </Border>
+          <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center" Spacing="2">
+            <TextBlock Classes="strong" Text="Rotate sitting and standing" />
+            <TextBlock Classes="caption" TextWrapping="Wrap" Text="Sit for a while, stand for a while, repeat." />
+          </StackPanel>
+          <c:Glyph Grid.Column="2" Classes="tick" Kind="check" Width="18" Height="18" VerticalAlignment="Top"
+                   Foreground="{DynamicResource Perch.Accent}" />
+        </Grid>
+      </RadioButton>
+      <RadioButton Grid.Column="2" Classes="choice" GroupName="mode" IsChecked="{Binding IsHourly}"
+                   AutomationProperties.Name="Stand every hour">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <Border Classes="badge">
+            <c:Glyph Kind="clock" Width="20" Height="20" Foreground="{DynamicResource Perch.Accent}" />
+          </Border>
+          <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center" Spacing="2">
+            <TextBlock Classes="strong" Text="Stand every hour" />
+            <TextBlock Classes="caption" TextWrapping="Wrap" Text="Up at the same minute past each hour." />
+          </StackPanel>
+          <c:Glyph Grid.Column="2" Classes="tick" Kind="check" Width="18" Height="18" VerticalAlignment="Top"
+                   Foreground="{DynamicResource Perch.Accent}" />
+        </Grid>
+      </RadioButton>
+    </Grid>
+    <TextBlock Classes="caption" TextWrapping="Wrap" Margin="2,10,0,16" Text="{Binding Explanation}" />
 
     <Border Classes="card" Padding="16,10">
-      <StackPanel>
+      <!-- Same columns as each row, so the band behind columns 3-4 lines up with them. -->
+      <Grid ColumnDefinitions="148,72,72,72,72,74,74,*" RowDefinitions="Auto,Auto,Auto">
+        <Border Name="ModeBand" Classes="band" Grid.Column="3" Grid.ColumnSpan="2" Grid.RowSpan="3"
+                Margin="0,0,0,4" />
+
+        <StackPanel Grid.Column="3" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6"
+                    HorizontalAlignment="Center" Margin="0,8,0,0">
+          <c:Glyph Kind="{Binding ModeGlyph}" Width="14" Height="14" Foreground="{DynamicResource Perch.Accent}" />
+          <TextBlock Classes="column mode" Text="{Binding ModeName}" />
+        </StackPanel>
+
         <!-- Column headings, on the same grid as the rows below. -->
-        <Grid ColumnDefinitions="148,72,72,72,72,74,74,*" Height="30">
+        <Grid Grid.Row="1" Grid.ColumnSpan="8" ColumnDefinitions="148,72,72,72,72,74,74,*" Height="30">
           <TextBlock Classes="column" Text="Day" />
           <TextBlock Grid.Column="1" Classes="column" Text="From" />
           <TextBlock Grid.Column="2" Classes="column" Text="Until" />
-          <TextBlock Grid.Column="3" Classes="column" Text="Stand at" />
-          <TextBlock Grid.Column="4" Classes="column" Text="For (min)" />
+          <TextBlock Grid.Column="3" Classes="column mode" Text="Stand at" IsVisible="{Binding IsHourly}" />
+          <TextBlock Grid.Column="4" Classes="column mode" Text="For (min)" IsVisible="{Binding IsHourly}" />
+          <TextBlock Grid.Column="3" Classes="column mode" Text="Sit (min)" IsVisible="{Binding IsRotation}" />
+          <TextBlock Grid.Column="4" Classes="column mode" Text="Stand (min)" IsVisible="{Binding IsRotation}" />
           <TextBlock Grid.Column="5" Classes="column" Text="Stand cm" />
           <TextBlock Grid.Column="6" Classes="column" Text="Return cm" />
         </Grid>
 
-        <ItemsControl ItemsSource="{Binding Days}">
+        <ItemsControl Grid.Row="2" Grid.ColumnSpan="8" ItemsSource="{Binding Days}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:DayRow">
               <StackPanel>
@@ -60,8 +152,16 @@
                   <TextBox Grid.Column="2" Classes="cell" Text="{Binding Until}" IsEnabled="{Binding Enabled}"
                            LostFocus="OnFieldLeft" />
                   <TextBox Grid.Column="3" Classes="cell" Text="{Binding StandAt}" IsEnabled="{Binding Enabled}"
+                           IsVisible="{Binding $parent[ItemsControl].((vm:ScheduleViewModel)DataContext).IsHourly}"
                            LostFocus="OnFieldLeft" />
                   <TextBox Grid.Column="4" Classes="cell" Text="{Binding StandFor}" IsEnabled="{Binding Enabled}"
+                           IsVisible="{Binding $parent[ItemsControl].((vm:ScheduleViewModel)DataContext).IsHourly}"
+                           LostFocus="OnFieldLeft" />
+                  <TextBox Grid.Column="3" Classes="cell" Text="{Binding RotationSit}" IsEnabled="{Binding Enabled}"
+                           IsVisible="{Binding $parent[ItemsControl].((vm:ScheduleViewModel)DataContext).IsRotation}"
+                           LostFocus="OnFieldLeft" />
+                  <TextBox Grid.Column="4" Classes="cell" Text="{Binding RotationStand}" IsEnabled="{Binding Enabled}"
+                           IsVisible="{Binding $parent[ItemsControl].((vm:ScheduleViewModel)DataContext).IsRotation}"
                            LostFocus="OnFieldLeft" />
                   <TextBox Grid.Column="5" Classes="cell" Text="{Binding StandCm}" IsEnabled="{Binding Enabled}"
                            LostFocus="OnFieldLeft" />
@@ -79,7 +179,7 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
-      </StackPanel>
+      </Grid>
     </Border>
 
     <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,18,0,0">

@@ -322,6 +322,11 @@ public sealed class DeskSession : IDisposable
         SetStatus("Schedule saved.");
     }
 
+    /// <summary>The schedule card's heading, which names the kind of schedule.</summary>
+    public string ScheduleTitle => Settings.Schedule.Mode == ScheduleMode.Rotation
+        ? "Rotate sitting and standing"
+        : "Stand every hour";
+
     /// <summary>"Next: up at 09:50." for the schedule card.</summary>
     public string NextMoveText
     {

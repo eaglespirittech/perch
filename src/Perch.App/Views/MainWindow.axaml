@@ -136,10 +136,10 @@
     <Border Classes="card" Padding="14">
       <Grid ColumnDefinitions="Auto,*,Auto,Auto">
         <Border Classes="badge">
-          <c:Glyph Kind="clock" Width="20" Height="20" Foreground="{DynamicResource Perch.Accent}" />
+          <c:Glyph Kind="{Binding ScheduleGlyph}" Width="20" Height="20" Foreground="{DynamicResource Perch.Accent}" />
         </Border>
         <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
-          <TextBlock Classes="strong" Text="Stand every hour" />
+          <TextBlock Classes="strong" Text="{Binding ScheduleTitle}" />
           <TextBlock Classes="caption" Text="{Binding NextMoveText}" />
         </StackPanel>
         <Button Grid.Column="2" Classes="subtle" Height="36" Padding="10,0" Margin="0,0,8,0"
